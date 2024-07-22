@@ -1,0 +1,116 @@
+import android.annotation.SuppressLint
+import android.content.Context
+import android.os.Bundle
+import android.util.Log
+import android.webkit.*
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.viewinterop.AndroidView
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+            MaterialTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    WebViewScreen(this)
+                }
+            }
+        }
+    }
+}
+
+@SuppressLint("SetJavaScriptEnabled")
+@Composable
+fun WebViewScreen(context: Context) {
+    val url = "https://lens.google.com/uploadbyurl?url=https%3A%2F%2Ftmpfiles.org%2Fdl%2F9543461%2Fmagical-spring-forest-scenery-during-morning-breeze-picjumbo-com.jpg"
+    var isLoading by remember { mutableStateOf(true) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        AndroidView(
+            factory = { ctx ->
+                WebView(ctx).apply {
+                    settings.apply {
+                        javaScriptEnabled = true
+                        domStorageEnabled = true
+                        databaseEnabled = true
+                        useWideViewPort = true
+                        loadWithOverviewMode = true
+                        mediaPlaybackRequiresUserGesture = false
+                        mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                        userAgentString = getDefaultUserAgent(context)
+                    }
+
+                    webViewClient = object : WebViewClient() {
+                        override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                            isLoading = true
+                            errorMessage = null
+                        }
+
+                        override fun onPageFinished(view: WebView?, url: String?) {
+                            isLoading = false
+                        }
+
+                        override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
+                            isLoading = false
+                            errorMessage = "Error: ${error?.description}"
+                            Log.e("WebView", "Error loading ${request?.url}: ${error?.description}")
+                        }
+
+                        override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
+                            request?.requestHeaders?.putAll(getDefaultHeaders(context))
+                            return super.shouldInterceptRequest(view, request)
+                        }
+                    }
+
+                    webChromeClient = object : WebChromeClient() {
+                        override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
+                            Log.d("WebView", "${consoleMessage?.message()} -- From line ${consoleMessage?.lineNumber()} of ${consoleMessage?.sourceId()}")
+                            return true
+                        }
+                    }
+
+                    loadUrl(url)
+                }
+            },
+            modifier = Modifier.fillMaxSize()
+        )
+
+        if (isLoading) {
+            CircularProgressIndicator(
+                modifier = Modifier.align(Alignment.Center)
+            )
+        }
+
+        errorMessage?.let {
+            Text(
+                text = it,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.align(Alignment.Center).padding(16.dp)
+            )
+        }
+    }
+}
+
+fun getDefaultUserAgent(context: Context): String {
+    return WebSettings.getDefaultUserAgent(context)
+}
+
+fun getDefaultHeaders(context: Context): Map<String, String> {
+    return mapOf(
+        "User-Agent" to getDefaultUserAgent(context),
+        "Accept-Language" to "en-US,en;q=0.9",
+        "Accept" to "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+        "Connection" to "keep-alive",
+        "Upgrade-Insecure-Requests" to "1"
+    )
+}
