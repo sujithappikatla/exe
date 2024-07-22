@@ -1,5 +1,3 @@
-import android.annotation.SuppressLint
-import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import android.webkit.*
@@ -10,6 +8,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 
 class MainActivity : ComponentActivity() {
@@ -21,37 +20,27 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    WebViewScreen(this)
+                    WebViewScreen()
                 }
             }
         }
     }
 }
 
-@SuppressLint("SetJavaScriptEnabled")
 @Composable
-fun WebViewScreen(context: Context) {
+fun WebViewScreen() {
     val url = "https://lens.google.com/uploadbyurl?url=https%3A%2F%2Ftmpfiles.org%2Fdl%2F9543461%2Fmagical-spring-forest-scenery-during-morning-breeze-picjumbo-com.jpg"
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         AndroidView(
-            factory = { ctx ->
-                WebView(ctx).apply {
-                    settings.apply {
-                        javaScriptEnabled = true
-                        domStorageEnabled = true
-                        databaseEnabled = true
-                        useWideViewPort = true
-                        loadWithOverviewMode = true
-                        mediaPlaybackRequiresUserGesture = false
-                        mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-                        userAgentString = getDefaultUserAgent(context)
-                    }
-
+            factory = { context ->
+                WebView(context).apply {
+                    settings.javaScriptEnabled = true
+                    settings.userAgentString = getCustomUserAgent(context)
                     webViewClient = object : WebViewClient() {
-                        override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                        override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                             isLoading = true
                             errorMessage = null
                         }
@@ -65,34 +54,14 @@ fun WebViewScreen(context: Context) {
                             errorMessage = "Error: ${error?.description}"
                             Log.e("WebView", "Error loading ${request?.url}: ${error?.description}")
                         }
-
-                        override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
-                            val newHeaders = request?.requestHeaders?.toMutableMap() ?: mutableMapOf()
-                            newHeaders.putAll(getCustomHeaders(context))
-                            
-                            val newRequest = request?.let {
-                                object : WebResourceRequest {
-                                    override fun getUrl() = it.url
-                                    override fun isForMainFrame() = it.isForMainFrame
-                                    override fun isRedirect() = it.isRedirect
-                                    override fun hasGesture() = it.hasGesture()
-                                    override fun getMethod() = it.method
-                                    override fun getRequestHeaders() = newHeaders
-                                }
-                            }
-                            
-                            return super.shouldInterceptRequest(view, newRequest)
-                        }
                     }
-
                     webChromeClient = object : WebChromeClient() {
                         override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
                             Log.d("WebView", "${consoleMessage?.message()} -- From line ${consoleMessage?.lineNumber()} of ${consoleMessage?.sourceId()}")
                             return true
                         }
                     }
-
-                    loadUrl(url, getCustomHeaders(context))
+                    loadUrl(url, getCustomHeaders())
                 }
             },
             modifier = Modifier.fillMaxSize()
@@ -114,20 +83,29 @@ fun WebViewScreen(context: Context) {
     }
 }
 
-fun getDefaultUserAgent(context: Context): String {
-    return WebSettings.getDefaultUserAgent(context)
+fun getCustomUserAgent(context: Context): String {
+    val defaultUserAgent = WebSettings.getDefaultUserAgent(context)
+    val displayMetrics = context.resources.displayMetrics
+    val screenSizeInches = Math.sqrt(
+        (displayMetrics.widthPixels / displayMetrics.xdpi).toDouble().pow(2.0) +
+        (displayMetrics.heightPixels / displayMetrics.ydpi).toDouble().pow(2.0)
+    )
+    return "$defaultUserAgent LargeDisplay/${screenSizeInches.toInt()}inch"
 }
 
-fun getCustomHeaders(context: Context): Map<String, String> {
+fun getCustomHeaders(): Map<String, String> {
     return mapOf(
-        "User-Agent" to getDefaultUserAgent(context),
-        "Accept-Language" to "en-US,en;q=0.9",
-        "Accept" to "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
-        "Connection" to "keep-alive",
-        "Upgrade-Insecure-Requests" to "1",
-        "Sec-Fetch-Site" to "none",
-        "Sec-Fetch-Mode" to "navigate",
-        "Sec-Fetch-User" to "?1",
-        "Sec-Fetch-Dest" to "document"
+        "sec-ch-ua" to "\"Opera\";v=\"111\", \"Chromium\";v=\"125\", \"Not.A/Brand\";v=\"24\"",
+        "sec-ch-ua-mobile" to "?0",
+        "sec-ch-ua-arch" to "\"x86\"",
+        "sec-ch-ua-form-factors" to "\"Desktop\"",
+        "sec-ch-ua-full-version" to "\"111.0.5168.61\"",
+        "sec-ch-ua-platform-version" to "\"15.0.0\"",
+        "Referer" to "https://lens.google.com/",
+        "sec-ch-ua-full-version-list" to "\"Opera\";v=\"111.0.5168.61\", \"Chromium\";v=\"125.0.6422.143\", \"Not.A/Brand\";v=\"24.0.0.0\"",
+        "sec-ch-ua-bitness" to "\"64\"",
+        "sec-ch-ua-model" to "\"\"",
+        "sec-ch-ua-wow64" to "?0",
+        "sec-ch-ua-platform" to "\"Windows\""
     )
 }
