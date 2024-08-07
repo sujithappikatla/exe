@@ -182,22 +182,22 @@ def create_model(num_classes):
         model = models.Sequential()
 
         # First Convolutional Layer
-        model.add(layers.Conv2D(64, (15, 15), activation='relu', input_shape=(28, 28, 1)))
-        model.add(layers.MaxPooling2D((3, 3), strides=3))
+        model.add(layers.Conv2D(64, (3, 3), activation='relu', input_shape=(28, 28, 1), padding='same'))
+        model.add(layers.MaxPooling2D((2, 2)))
         model.add(layers.BatchNormalization())
     
         # Second Convolutional Layer
-        model.add(layers.Conv2D(128, (5, 5), activation='relu'))
-        model.add(layers.MaxPooling2D((3, 3), strides=3))
+        model.add(layers.Conv2D(128, (3, 3), activation='relu', padding='same'))
+        model.add(layers.MaxPooling2D((2, 2)))
         model.add(layers.BatchNormalization())
     
         # Third Convolutional Layer
-        model.add(layers.Conv2D(256, (3, 3), activation='relu'))
+        model.add(layers.Conv2D(256, (3, 3), activation='relu', padding='same'))
         model.add(layers.BatchNormalization())
     
         # Fourth Convolutional Layer
-        model.add(layers.Conv2D(256, (3, 3), activation='relu'))
-        model.add(layers.MaxPooling2D((3, 3), strides=3))
+        model.add(layers.Conv2D(256, (3, 3), activation='relu', padding='same'))
+        model.add(layers.MaxPooling2D((2, 2)))
         model.add(layers.BatchNormalization())
     
         # Flatten and Fully Connected Layers
