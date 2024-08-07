@@ -65,16 +65,16 @@ CATEGORIES = [
     "elephant", "eye", "face", "fan", "feather",
     "fish", "flower", "fork", "frog", "giraffe",
     
-    "guitar", "hamburger", "hand", "hat", "heart",
+    "guitar", "hamburger", "hand", "hat", "stairs",
     "horse", "house", "ice cream", "jacket", "key",
     
     "leaf", "lion", "lollipop", "map", "monkey",
     "moon", "mountain", "mug", "mushroom", "nose",
     
     "ocean", "owl", "panda", "pants", "pencil",
-    "penguin", "pizza", "rabbit", "rainbow", "rocket",
+    "penguin", "pizza", "rabbit", "rainbow", "hexagon",
     
-    "rose", "sailboat", "sandwich", "scissors", "shark",
+    "river", "sailboat", "sandwich", "scissors", "shark",
     "sheep", "shoe", "skateboard", "smiley face", "snake",
     
     "snowman", "soccer ball", "spider", "spoon", "star",
