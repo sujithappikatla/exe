@@ -179,26 +179,33 @@ def create_model(num_classes):
         model = tf.keras.models.load_model('model_checkpoint.keras')
     else:
         print(f"The file {checkpoint_file_path} does not exist.")
-        model = models.Sequential([
-            layers.Conv2D(64, (3, 3), activation='relu', input_shape=(28, 28, 1)),
-            layers.BatchNormalization(),
-            layers.MaxPooling2D(pool_size=(2, 2)),
-            layers.Dropout(0.3),
+        model = models.Sequential()
 
-            layers.Conv2D(128, (3, 3), activation='relu'),
-            layers.BatchNormalization(),
-            layers.MaxPooling2D(pool_size=(2, 2)),
-            layers.Dropout(0.3),
+        # First Convolutional Layer
+        model.add(layers.Conv2D(64, (15, 15), activation='relu', input_shape=(28, 28, 1)))
+        model.add(layers.MaxPooling2D((3, 3), strides=3))
+        model.add(layers.BatchNormalization())
+    
+        # Second Convolutional Layer
+        model.add(layers.Conv2D(128, (5, 5), activation='relu'))
+        model.add(layers.MaxPooling2D((3, 3), strides=3))
+        model.add(layers.BatchNormalization())
+    
+        # Third Convolutional Layer
+        model.add(layers.Conv2D(256, (3, 3), activation='relu'))
+        model.add(layers.BatchNormalization())
+    
+        # Fourth Convolutional Layer
+        model.add(layers.Conv2D(256, (3, 3), activation='relu'))
+        model.add(layers.MaxPooling2D((3, 3), strides=3))
+        model.add(layers.BatchNormalization())
+    
+        # Flatten and Fully Connected Layers
+        model.add(layers.Flatten())
+        model.add(layers.Dense(512, activation='relu'))
+        model.add(layers.Dropout(0.5))
+        model.add(layers.Dense(num_classes, activation='softmax'))
 
-            layers.Conv2D(256, (3, 3), activation='relu'),
-            layers.BatchNormalization(),
-            layers.Flatten(),
-
-            layers.Dense(256, activation='relu'),
-            layers.Dropout(0.5),
-
-            layers.Dense(num_classes, activation='softmax')
-        ])
 
     #model = models.Sequential([
     #    layers.Conv2D(32, (3, 3), activation='relu', input_shape=(28, 28, 1)),
