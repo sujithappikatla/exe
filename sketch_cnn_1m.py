@@ -53,13 +53,14 @@ CATEGORIES = [
     "airplane", "alarm clock", "apple", "backpack", "banana", "baseball", "basketball", "bed", "bicycle", "bird",
     "book", "bridge", "butterfly", "camera", "car", "cat", "chair", "clock", "cloud", "computer",
     "cup", "dog", "door", "eye", "fish", "flower", "fork", "guitar", "hat", "house",
-    "key", "lamp", "leaf", "light bulb", "moon", "mountain", "mouse", "pencil", "phone", "pizza",
-    "rabbit", "scissors", "shoe", "sun", "table", "tree", "umbrella", "boat", "bottle", "cake",
-    "candle", "carrot", "cookie", "egg", "elephant", "giraffe", "glasses", "hammer", "helicopter", "ice cream",
-    "knife", "ladder", "lion", "pen", "piano", "pig", "rocket", "spoon", "star", "truck",
-    "watch", "ball", "bear", "bench", "bus", "butterfly", "cactus", "cheese", "coconut", "corn",
-    "crown", "diamond", "dinosaur", "drum", "duck", "fan", "fire", "frog", "grapes", "heart",
-    "kite", "lemon", "octopus", "onion", "orange", "panda", "penguin", "snake", "snowman", "strawberry"
+    "key", "laptop", "leaf", "light bulb", "moon", "mountain", "mouse", "pencil", "cell phone", "pizza",
+    "rabbit", "scissors", "shoe", "sun", "table", "tree", "umbrella", "boat", "cake",
+    "candle", "carrot", "cookie", "elephant", "giraffe", "glasses", "hammer", "helicopter", "ice cream",
+    "knife", "ladder", "lion", "piano", "pig", "spoon", "star", "truck",
+    "wristwatch", "ball", "bear", "bench", "bus", "cactus", "corn",
+    "crown", "diamond", "duck", "fan", "fire", "frog", "grapes", "heart",
+    "lemon", "octopus", "onion", "orange", "panda", "penguin", "snake", "snowman", "strawberry",
+    "bicycle", "brain", "crab", "drill", "ear", "foot", "hand", "lips", "nose", "shark"
 ]
 DATA_DIR = 'quickdraw_data'
 
