@@ -5,7 +5,7 @@
 # ### Package Install
 
 # %%
-! pip install numpy matplotlib scikit-learn
+# ! pip install numpy matplotlib scikit-learn
 
 # %%
 import tensorflow as tf
