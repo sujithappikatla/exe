@@ -52,7 +52,35 @@ def download_data(category, output_dir):
 CATEGORIES = [
     "airplane", "alarm clock", "apple", "banana", "baseball", 
     "baseball bat", "basketball", "bear", "bed", "bee",
-
+    
+    "bicycle", "bird", "birthday cake", "book", "bowtie",
+    "bread", "butterfly", "cake", "camera", "car",
+    
+    "cat", "chair", "circle", "clock", "cloud", 
+    "coffee cup", "cookie", "couch", "cow", "crayon",
+    
+    "crocodile", "cup", "diamond", "dog", "dolphin",
+    "donut", "door", "dragon", "duck", "ear",
+    
+    "elephant", "eye", "face", "fan", "feather",
+    "fish", "flower", "fork", "frog", "giraffe",
+    
+    "guitar", "hamburger", "hand", "hat", "stairs",
+    "horse", "house", "ice cream", "jacket", "key",
+    
+    "leaf", "lion", "lollipop", "map", "monkey",
+    "moon", "mountain", "mug", "mushroom", "nose",
+    
+    "ocean", "owl", "panda", "pants", "pencil",
+    "penguin", "pizza", "rabbit", "rainbow", "hexagon",
+    
+    "river", "sailboat", "sandwich", "scissors", "shark",
+    "sheep", "shoe", "skateboard", "smiley face", "snake",
+    
+    "snowman", "soccer ball", "spider", "spoon", "star",
+    "strawberry", "sun", "swan", "sword", "teddy-bear",
+    "telephone", "tree", "truck", "umbrella", "whale",
+    "zebra"
 ]
 
 DATA_DIR = 'quickdraw_data'
@@ -189,9 +217,9 @@ def create_model(num_classes):
 
 # %%
 # Hyperparameters
-SAMPLES_PER_CLASS = 20000
+SAMPLES_PER_CLASS = 10000
 BATCH_SIZE = 100 * len(CATEGORIES)
-EPOCHS = 5
+EPOCHS = 3
 
 # %%
 def train_model(model, train_generator, val_generator, epochs):
