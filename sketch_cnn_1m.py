@@ -115,7 +115,7 @@ class QuickDrawDataGenerator(Sequence):
         multipler = self.batch_size // len(self.categories)
 
         #print(f"${idx}")
-        batch_x = np.empty((self.batch_size, 28, 28, 1), dtype=np.float32)
+        batch_x = np.empty((self.batch_size, 32, 32, 1), dtype=np.float32)
         #print(batch_x.shape)
         batch_labels = np.empty((self.batch_size), dtype=np.float32)
         for cat_idx, category in enumerate(self.categories):
@@ -135,7 +135,9 @@ class QuickDrawDataGenerator(Sequence):
                 range_end = multipler
             
             sample = class_data[range_start:range_end]
-            sample = sample.reshape(-1, 28, 28, 1).astype('float32') / 255.0
+            sample = sample.reshape(-1, 28, 28, 1).astype('float32')
+            sample = tf.image.resize(sample, (32, 32))
+            sample = sample.numpy().astype('float32') / 255.0
             #print(cat_idx)
             #print((cat_idx+1)*1000)
             #print(batch_x[cat_idx*1000:(cat_idx+1)*1000].shape)
@@ -181,7 +183,7 @@ def create_model(num_classes):
         print(f"The file {checkpoint_file_path} does not exist.")
         # Load the MobileNetV2 model with a small alpha
         base_model = tf.keras.applications.MobileNetV2(
-            input_shape=(28, 28, 1),
+            input_shape=(32, 32, 1),
             alpha=0.3,
             include_top=False,
             weights=None  # Start training from scratch
