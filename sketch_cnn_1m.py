@@ -50,18 +50,39 @@ def download_data(category, output_dir):
 # Define categories and URLs
 # CATEGORIES = ['cat', 'dog', 'car', 'airplane', 'apple', 'stairs']
 CATEGORIES = [
-    "airplane", "alarm clock", "apple", "backpack", "banana", "baseball", "basketball", "bed", "bicycle", "bird",
-    "book", "bridge", "butterfly", "camera", "car", "cat", "chair", "clock", "cloud", "computer",
-    "cup", "dog", "door", "eye", "fish", "flower", "fork", "guitar", "hat", "house",
-    "key", "laptop", "leaf", "light bulb", "moon", "mountain", "mouse", "pencil", "cell phone", "pizza",
-    "rabbit", "scissors", "shoe", "sun", "table", "tree", "umbrella", "boat", "cake",
-    "candle", "carrot", "cookie", "elephant", "giraffe", "glasses", "hammer", "helicopter", "ice cream",
-    "knife", "ladder", "lion", "piano", "pig", "spoon", "star", "truck",
-    "wristwatch", "ball", "bear", "bench", "bus", "cactus", "corn",
-    "crown", "diamond", "duck", "fan", "fire", "frog", "grapes", "heart",
-    "lemon", "octopus", "onion", "orange", "panda", "penguin", "snake", "snowman", "strawberry",
-    "bicycle", "brain", "crab", "drill", "ear", "foot", "hand", "lips", "nose", "shark"
+    "airplane", "alarm clock", "apple", "banana", "baseball", 
+    "baseball bat", "basketball", "bear", "bed", "bee",
+    
+    "bicycle", "bird", "birthday cake", "book", "bowtie",
+    "bread", "butterfly", "cake", "camera", "car",
+    
+    "cat", "chair", "circle", "clock", "cloud", 
+    "coffee cup", "cookie", "couch", "cow", "crayon",
+    
+    "crocodile", "cup", "diamond", "dog", "dolphin",
+    "donut", "door", "dragon", "duck", "ear",
+    
+    "elephant", "eye", "face", "fan", "feather",
+    "fish", "flower", "fork", "frog", "giraffe",
+    
+    "guitar", "hamburger", "hand", "hat", "heart",
+    "horse", "house", "ice cream", "jacket", "key",
+    
+    "leaf", "lion", "lollipop", "map", "monkey",
+    "moon", "mountain", "mug", "mushroom", "nose",
+    
+    "ocean", "owl", "panda", "pants", "pencil",
+    "penguin", "pizza", "rabbit", "rainbow", "rocket",
+    
+    "rose", "sailboat", "sandwich", "scissors", "shark",
+    "sheep", "shoe", "skateboard", "smiley face", "snake",
+    
+    "snowman", "soccer ball", "spider", "spoon", "star",
+    "strawberry", "sun", "swan", "sword", "teddy-bear",
+    "telephone", "tree", "truck", "umbrella", "whale",
+    "zebra"
 ]
+
 DATA_DIR = 'quickdraw_data'
 
 # Create data directory if it doesn't exist
