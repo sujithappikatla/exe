@@ -138,12 +138,14 @@ class QuickDrawDataGenerator(Sequence):
             sample = sample.reshape(-1, 28, 28, 1).astype('float32')
             sample = tf.image.resize(sample, (32, 32))
             sample = sample.numpy().astype('float32') / 255.0
+            print(f"sample shape : {sample.shape}")
             #print(cat_idx)
             #print((cat_idx+1)*1000)
             #print(batch_x[cat_idx*1000:(cat_idx+1)*1000].shape)
 
             batch_x[cat_idx*multipler:(cat_idx+1)*multipler] = sample 
             batch_labels[cat_idx*multipler:(cat_idx+1)*multipler] = cat_idx
+            print(f"batch shape : {batch_x.shape}")
 
         
         # Convert to bfloat16
