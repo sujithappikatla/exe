@@ -99,7 +99,7 @@ class QuickDrawDataGenerator(Sequence):
         batch_labels = np.empty((self.batch_size), dtype=np.float32)
         for cat_idx, category in enumerate(self.categories):
             file_path = os.path.join(self.data_dir, f"{category}.npy")
-            class_data = np.load(file_path)
+            class_data = np.load(file_path, allow_pickle=True)
             class_len = len(class_data)
             divider = (int)(class_len * 0.8)
             if self.subset == "train":
