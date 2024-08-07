@@ -115,7 +115,7 @@ class QuickDrawDataGenerator(Sequence):
         multipler = self.batch_size // len(self.categories)
 
         #print(f"${idx}")
-        batch_x = np.empty((self.batch_size, 32, 32, 1), dtype=np.float32)
+        batch_x = np.empty((self.batch_size, 32, 32, 3), dtype=np.float32)
         #print(batch_x.shape)
         batch_labels = np.empty((self.batch_size), dtype=np.float32)
         for cat_idx, category in enumerate(self.categories):
@@ -137,6 +137,7 @@ class QuickDrawDataGenerator(Sequence):
             sample = class_data[range_start:range_end]
             sample = sample.reshape(-1, 28, 28, 1).astype('float32')
             sample = tf.image.resize(sample, (32, 32))
+            sample = tf.image.grayscale_to_rgb(sample)  # Convert to 3 channels
             sample = sample.numpy().astype('float32') / 255.0
             print(f"sample shape : {sample.shape}")
             #print(cat_idx)
