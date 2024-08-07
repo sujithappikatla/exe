@@ -51,16 +51,16 @@ def download_data(category, output_dir):
 # Define categories and URLs
 # CATEGORIES = ['cat', 'dog', 'car', 'airplane', 'apple', 'stairs']
 CATEGORIES = [
-    "apple", "chair", "tree", "car", "house", "sun", "dog", "cat", "book", "flower",
-    "pencil", "table", "cup", "shoes", "ball", "clock", "umbrella", "guitar", "bicycle", "lamp",
-    "key", "bird", "fish", "hat", "glasses", "phone", "computer", "camera", "scissors", "knife",
-    "fork", "spoon", "plate", "bottle", "television", "airplane", "boat", "train", "cloud", "star",
-    "moon", "mountain", "river", "bridge", "door", "window", "bed", "shirt", "pants", "socks",
-    "butterfly", "elephant", "lion", "giraffe", "banana", "pizza", "hamburger", "ice cream", "cake", "carrot",
-    "brush", "toothbrush", "comb", "pen", "ruler", "backpack", "suitcase", "flag", "heart", "smile",
-    "eye", "hand", "foot", "leaf", "flower pot", "candle", "balloon", "kite", "swing", "slide",
-    "doll", "teddy bear", "robot", "rocket", "castle", "tent", "snowman", "rainbow", "umbrella", "ladder",
-    "wheel", "anchor", "crown", "ring", "watch", "bell", "present", "candy", "lollipop", "basketball"
+    "airplane", "alarm clock", "apple", "backpack", "banana", "baseball", "basketball", "bed", "bicycle", "bird",
+    "book", "bridge", "butterfly", "camera", "car", "cat", "chair", "clock", "cloud", "computer",
+    "cup", "dog", "door", "eye", "fish", "flower", "fork", "guitar", "hat", "house",
+    "key", "lamp", "leaf", "light bulb", "moon", "mountain", "mouse", "pencil", "phone", "pizza",
+    "rabbit", "scissors", "shoe", "sun", "table", "tree", "umbrella", "boat", "bottle", "cake",
+    "candle", "carrot", "cookie", "egg", "elephant", "giraffe", "glasses", "hammer", "helicopter", "ice cream",
+    "knife", "ladder", "lion", "pen", "piano", "pig", "rocket", "spoon", "star", "truck",
+    "watch", "ball", "bear", "bench", "bus", "butterfly", "cactus", "cheese", "coconut", "corn",
+    "crown", "diamond", "dinosaur", "drum", "duck", "fan", "fire", "frog", "grapes", "heart",
+    "kite", "lemon", "octopus", "onion", "orange", "panda", "penguin", "snake", "snowman", "strawberry"
 ]
 DATA_DIR = 'quickdraw_data'
 
