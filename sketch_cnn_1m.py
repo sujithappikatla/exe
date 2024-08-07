@@ -179,32 +179,22 @@ def create_model(num_classes):
         model = tf.keras.models.load_model('model_checkpoint.keras')
     else:
         print(f"The file {checkpoint_file_path} does not exist.")
-        model = models.Sequential()
-
-        # First Convolutional Layer
-        model.add(layers.Conv2D(64, (3, 3), activation='relu', input_shape=(28, 28, 1), padding='same'))
-        model.add(layers.MaxPooling2D((2, 2)))
-        model.add(layers.BatchNormalization())
+        # Load the MobileNetV2 model with a small alpha
+        base_model = tf.keras.applications.MobileNetV2(
+            input_shape=(28, 28, 1),
+            alpha=0.3,
+            include_top=False,
+            weights=None  # Start training from scratch
+        )
     
-        # Second Convolutional Layer
-        model.add(layers.Conv2D(128, (3, 3), activation='relu', padding='same'))
-        model.add(layers.MaxPooling2D((2, 2)))
-        model.add(layers.BatchNormalization())
-    
-        # Third Convolutional Layer
-        model.add(layers.Conv2D(256, (3, 3), activation='relu', padding='same'))
-        model.add(layers.BatchNormalization())
-    
-        # Fourth Convolutional Layer
-        model.add(layers.Conv2D(256, (3, 3), activation='relu', padding='same'))
-        model.add(layers.MaxPooling2D((2, 2)))
-        model.add(layers.BatchNormalization())
-    
-        # Flatten and Fully Connected Layers
-        model.add(layers.Flatten())
-        model.add(layers.Dense(512, activation='relu'))
-        model.add(layers.Dropout(0.5))
-        model.add(layers.Dense(num_classes, activation='softmax'))
+        # Add custom layers on top of the base model
+        model = models.Sequential([
+            base_model,
+            layers.GlobalAveragePooling2D(),
+            layers.Dense(1024, activation='relu'),
+            layers.Dropout(0.5),
+            layers.Dense(num_classes, activation='softmax')
+        ])
 
 
     #model = models.Sequential([
