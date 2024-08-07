@@ -5,7 +5,7 @@
 # ### Package Install
 
 # %%
-#! pip install tensorflow-gpu numpy matplotlib scikit-learn
+! pip install numpy matplotlib scikit-learn
 
 # %%
 import tensorflow as tf
@@ -18,6 +18,7 @@ from sklearn.model_selection import train_test_split
 from tensorflow.keras.utils import Sequence
 import matplotlib.pyplot as plt
 from tensorflow.keras.callbacks import ModelCheckpoint
+from tensorflow.keras.applications import MobileNetV2
 
 # %%
 # Enable mixed precision
@@ -49,61 +50,17 @@ def download_data(category, output_dir):
 # Define categories and URLs
 # CATEGORIES = ['cat', 'dog', 'car', 'airplane', 'apple', 'stairs']
 CATEGORIES = [
-    "aircraft carrier", "airplane", "alarm clock", "ambulance", "angel", 
-    "animal migration", "ant", "anvil", "apple", "arm", "asparagus", "axe", 
-    "backpack", "banana", "bandage", "barn", "baseball", "baseball bat", 
-    "basket", "basketball", "bat", "bathtub", "beach", "bear", "beard", "bed", 
-    "bee", "belt", "bench", "bicycle", "binoculars", "bird", "birthday cake", 
-    "blackberry", "blueberry", "book", "boomerang", "bottlecap", "bowtie", 
-    "bracelet", "brain", "bread", "bridge", "broccoli", "broom", "bucket", 
-    "bulldozer", "bus", "bush", "butterfly", "cactus", "cake", "calculator", 
-    "calendar", "camel", "camera", "camouflage", "campfire", "candle", "cannon", 
-    "canoe", "car", "carrot", "castle", "cat", "ceiling fan", "cello", 
-    "cell phone", "chair", "chandelier", "church", "circle", "clarinet", 
-    "clock", "cloud", "coffee cup", "compass", "computer", "cookie", "cooler", 
-    "couch", "cow", "crab", "crayon", "crocodile", "crown", "cruise ship", 
-    "cup", "diamond", "dishwasher", "diving board", "dog", "dolphin", "donut", 
-    "door", "dragon", "dresser", "drill", "drums", "duck", "dumbbell", "ear",
-    "elbow", "elephant", "envelope", "eraser", "eye", "eyeglasses", "face", 
-    "fan", "feather", "fence", "finger", "fire hydrant", "fireplace", 
-    "firetruck", "fish", "flamingo", "flashlight", "flip flops", "floor lamp", 
-    "flower", "flying saucer", "foot", "fork", "frog", "frying pan", "garden", 
-    "garden hose", "giraffe", "goatee", "golf club", "grapes", "grass", 
-    "guitar", "hamburger", "hammer", "hand", "harp", "hat", "headphones", 
-    "hedgehog", "helicopter", "helmet", "hexagon", "hockey puck", "hockey stick", 
-    "horse", "hospital", "hot air balloon", "hot dog", "hot tub", "hourglass", 
-    "house", "house plant", "hurricane", "ice cream", "jacket", "jail", 
-    "kangaroo", "key", "keyboard", "knee", "knife", "ladder", "lantern", 
-    "laptop", "leaf", "leg", "light bulb", "lighter", "lighthouse", "lightning", 
-    "line", "lion", "lipstick", "lobster", "lollipop", "mailbox", "map", 
-    "marker", "matches", "megaphone", "mermaid", "microphone", "microwave", 
-    "monkey", "moon", "mosquito", "motorbike", "mountain", "mouse", "moustache", 
-    "mouth", "mug", "mushroom", "nail", "necklace", "nose", "ocean", "octagon", 
-    "octopus", "onion", "oven", "owl", "paintbrush", "paint can", "palm tree", 
-    "panda", "pants", "paper clip", "parachute", "parrot", "passport", "peanut", 
-    "pear", "peas", "pencil", "penguin", "piano", "pickup truck", "picture frame", 
-    "pig", "pillow", "pineapple", "pizza", "pliers", "police car", "pond", 
-    "pool", "popsicle", "postcard", "potato", "power outlet", "purse", "rabbit", 
-    "raccoon", "radio", "rain", "rainbow", "rake", "remote control", "rhinoceros", 
-    "rifle", "river", "roller coaster", "rollerskates", "sailboat", "sandwich", 
-    "saw", "saxophone", "school bus", "scissors", "scorpion", "screwdriver", 
-    "sea turtle", "see saw", "shark", "sheep", "shoe", "shorts", "shovel", 
-    "sink", "skateboard", "skull", "skyscraper", "sleeping bag", "smiley face", 
-    "snail", "snake", "snorkel", "snowflake", "snowman", "soccer ball", "sock", 
-    "speedboat", "spider", "spoon", "spreadsheet", "square", "squiggle", 
-    "squirrel", "stairs", "star", "steak", "stereo", "stethoscope", "stitches", 
-    "stop sign", "stove", "strawberry", "streetlight", "string bean", "submarine", 
-    "suitcase", "sun", "swan", "sweater", "swing set", "sword", "syringe", 
-    "table", "teapot", "teddy-bear", "telephone", "television", "tennis racquet", 
-    "tent", "The Eiffel Tower", "The Great Wall of China", "The Mona Lisa", 
-    "tiger", "toaster", "toe", "toilet", "tooth", "toothbrush", "toothpaste", 
-    "tornado", "tractor", "traffic light", "train", "tree", "triangle", 
-    "trombone", "truck", "trumpet", "t-shirt", "umbrella", "underwear", "van", 
-    "vase", "violin", "washing machine", "watermelon", "waterslide", "whale", 
-    "wheel", "windmill", "wine bottle", "wine glass", "wristwatch", "yoga", 
-    "zebra", "zigzag"
+    "Apple", "Chair", "Tree", "Car", "House", "Sun", "Dog", "Cat", "Book", "Flower",
+    "Pencil", "Table", "Cup", "Shoes", "Ball", "Clock", "Umbrella", "Guitar", "Bicycle", "Lamp",
+    "Key", "Bird", "Fish", "Hat", "Glasses", "Phone", "Computer", "Camera", "Scissors", "Knife",
+    "Fork", "Spoon", "Plate", "Bottle", "Television", "Airplane", "Boat", "Train", "Cloud", "Star",
+    "Moon", "Mountain", "River", "Bridge", "Door", "Window", "Bed", "Shirt", "Pants", "Socks",
+    "Butterfly", "Elephant", "Lion", "Giraffe", "Banana", "Pizza", "Hamburger", "Ice cream", "Cake", "Carrot",
+    "Brush", "Toothbrush", "Comb", "Pen", "Ruler", "Backpack", "Suitcase", "Flag", "Heart", "Smile",
+    "Eye", "Hand", "Foot", "Leaf", "Flower pot", "Candle", "Balloon", "Kite", "Swing", "Slide",
+    "Doll", "Teddy bear", "Robot", "Rocket", "Castle", "Tent", "Snowman", "Rainbow", "Umbrella", "Ladder",
+    "Wheel", "Anchor", "Crown", "Ring", "Watch", "Bell", "Present", "Candy", "Lollipop", "Basketball"
 ]
-
 DATA_DIR = 'quickdraw_data'
 
 # Create data directory if it doesn't exist
@@ -192,16 +149,45 @@ class QuickDrawDataGenerator(Sequence):
 # %%
 def create_model(num_classes):
     """Create the CNN model."""
-    model = models.Sequential([
-        layers.Conv2D(32, (3, 3), activation='relu', input_shape=(28, 28, 1)),
-        layers.MaxPooling2D((2, 2)),
-        layers.Conv2D(64, (3, 3), activation='relu'),
-        layers.MaxPooling2D((2, 2)),
-        layers.Conv2D(64, (3, 3), activation='relu'),
-        layers.Flatten(),
-        layers.Dense(64, activation='relu'),
-        layers.Dense(num_classes, activation='softmax')
-    ])
+    # Build a larger custom CNN model
+    checkpoint_file_path = "model_checkpoint.keras"
+    if os.path.exists(checkpoint_file_path):
+        print(f"The file {checkpoint_file_path} exists.")
+        # Load the model from the saved checkpoint
+        model = tf.keras.models.load_model('model_checkpoint.keras')
+    else:
+        print(f"The file {checkpoint_file_path} does not exist.")
+        model = models.Sequential([
+            layers.Conv2D(64, (3, 3), activation='relu', input_shape=(28, 28, 1)),
+            layers.BatchNormalization(),
+            layers.MaxPooling2D(pool_size=(2, 2)),
+            layers.Dropout(0.3),
+
+            layers.Conv2D(128, (3, 3), activation='relu'),
+            layers.BatchNormalization(),
+            layers.MaxPooling2D(pool_size=(2, 2)),
+            layers.Dropout(0.3),
+
+            layers.Conv2D(256, (3, 3), activation='relu'),
+            layers.BatchNormalization(),
+            layers.Flatten(),
+
+            layers.Dense(256, activation='relu'),
+            layers.Dropout(0.5),
+
+            layers.Dense(num_classes, activation='softmax')
+        ])
+
+    #model = models.Sequential([
+    #    layers.Conv2D(32, (3, 3), activation='relu', input_shape=(28, 28, 1)),
+    #    layers.MaxPooling2D((2, 2)),
+    #    layers.Conv2D(64, (3, 3), activation='relu'),
+    #    layers.MaxPooling2D((2, 2)),
+    #    layers.Conv2D(64, (3, 3), activation='relu'),
+    #    layers.Flatten(),
+    #    layers.Dense(64, activation='relu'),
+    #    layers.Dense(num_classes, activation='softmax')
+    #])
     return model
 
 # %% [markdown]
@@ -209,9 +195,9 @@ def create_model(num_classes):
 
 # %%
 # Hyperparameters
-SAMPLES_PER_CLASS = 10000
+SAMPLES_PER_CLASS = 20000
 BATCH_SIZE = 100 * len(CATEGORIES)
-EPOCHS = 1
+EPOCHS = 5
 
 # %%
 def train_model(model, train_generator, val_generator, epochs):
