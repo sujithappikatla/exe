@@ -51,16 +51,16 @@ def download_data(category, output_dir):
 # Define categories and URLs
 # CATEGORIES = ['cat', 'dog', 'car', 'airplane', 'apple', 'stairs']
 CATEGORIES = [
-    "Apple", "Chair", "Tree", "Car", "House", "Sun", "Dog", "Cat", "Book", "Flower",
-    "Pencil", "Table", "Cup", "Shoes", "Ball", "Clock", "Umbrella", "Guitar", "Bicycle", "Lamp",
-    "Key", "Bird", "Fish", "Hat", "Glasses", "Phone", "Computer", "Camera", "Scissors", "Knife",
-    "Fork", "Spoon", "Plate", "Bottle", "Television", "Airplane", "Boat", "Train", "Cloud", "Star",
-    "Moon", "Mountain", "River", "Bridge", "Door", "Window", "Bed", "Shirt", "Pants", "Socks",
-    "Butterfly", "Elephant", "Lion", "Giraffe", "Banana", "Pizza", "Hamburger", "Ice cream", "Cake", "Carrot",
-    "Brush", "Toothbrush", "Comb", "Pen", "Ruler", "Backpack", "Suitcase", "Flag", "Heart", "Smile",
-    "Eye", "Hand", "Foot", "Leaf", "Flower pot", "Candle", "Balloon", "Kite", "Swing", "Slide",
-    "Doll", "Teddy bear", "Robot", "Rocket", "Castle", "Tent", "Snowman", "Rainbow", "Umbrella", "Ladder",
-    "Wheel", "Anchor", "Crown", "Ring", "Watch", "Bell", "Present", "Candy", "Lollipop", "Basketball"
+    "apple", "chair", "tree", "car", "house", "sun", "dog", "cat", "book", "flower",
+    "pencil", "table", "cup", "shoes", "ball", "clock", "umbrella", "guitar", "bicycle", "lamp",
+    "key", "bird", "fish", "hat", "glasses", "phone", "computer", "camera", "scissors", "knife",
+    "fork", "spoon", "plate", "bottle", "television", "airplane", "boat", "train", "cloud", "star",
+    "moon", "mountain", "river", "bridge", "door", "window", "bed", "shirt", "pants", "socks",
+    "butterfly", "elephant", "lion", "giraffe", "banana", "pizza", "hamburger", "ice cream", "cake", "carrot",
+    "brush", "toothbrush", "comb", "pen", "ruler", "backpack", "suitcase", "flag", "heart", "smile",
+    "eye", "hand", "foot", "leaf", "flower pot", "candle", "balloon", "kite", "swing", "slide",
+    "doll", "teddy bear", "robot", "rocket", "castle", "tent", "snowman", "rainbow", "umbrella", "ladder",
+    "wheel", "anchor", "crown", "ring", "watch", "bell", "present", "candy", "lollipop", "basketball"
 ]
 DATA_DIR = 'quickdraw_data'
 
