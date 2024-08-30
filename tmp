@@ -1,15 +1,24 @@
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.net.wifi.WifiManager
 import android.os.Bundle
-import android.util.Log
-import android.webkit.*
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import java.net.NetworkInterface
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -20,92 +29,179 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    WebViewScreen()
+                    NetworkInfoScreen()
                 }
             }
         }
     }
 }
 
-@Composable
-fun WebViewScreen() {
-    val url = "https://lens.google.com/uploadbyurl?url=https%3A%2F%2Ftmpfiles.org%2Fdl%2F9543461%2Fmagical-spring-forest-scenery-during-morning-breeze-picjumbo-com.jpg"
-    var isLoading by remember { mutableStateOf(true) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
+class NetworkInfoViewModel : ViewModel() {
+    private val _networkInfo = mutableStateOf<Map<String, String>>(emptyMap())
+    val networkInfo: State<Map<String, String>> = _networkInfo
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        AndroidView(
-            factory = { context ->
-                WebView(context).apply {
-                    settings.javaScriptEnabled = true
-                    settings.userAgentString = getCustomUserAgent(context)
-                    webViewClient = object : WebViewClient() {
-                        override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
-                            isLoading = true
-                            errorMessage = null
-                        }
+    fun updateNetworkInfo(context: Context) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val info = mutableMapOf<String, String>()
+            
+            // Get MAC address
+            info["MAC Address"] = getMacAddress()
+            
+            // Get IP addresses
+            info["Wi-Fi IP"] = getWifiIpAddress(context)
+            info["Ethernet IP"] = getEthernetIpAddress()
+            
+            // Additional network information
+            info["Network Type"] = getNetworkType(context)
+            info["Is VPN Active"] = isVpnActive(context).toString()
+            info["DNS Servers"] = getDnsServers()
+            
+            _networkInfo.value = info
+        }
+    }
 
-                        override fun onPageFinished(view: WebView?, url: String?) {
-                            isLoading = false
-                        }
-
-                        override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
-                            isLoading = false
-                            errorMessage = "Error: ${error?.description}"
-                            Log.e("WebView", "Error loading ${request?.url}: ${error?.description}")
-                        }
-                    }
-                    webChromeClient = object : WebChromeClient() {
-                        override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
-                            Log.d("WebView", "${consoleMessage?.message()} -- From line ${consoleMessage?.lineNumber()} of ${consoleMessage?.sourceId()}")
-                            return true
-                        }
-                    }
-                    loadUrl(url, getCustomHeaders())
+    private fun getMacAddress(): String {
+        try {
+            val networkInterfaces = NetworkInterface.getNetworkInterfaces()
+            while (networkInterfaces.hasMoreElements()) {
+                val networkInterface = networkInterfaces.nextElement()
+                if (!networkInterface.name.equals("wlan0", ignoreCase = true)) continue
+                val macBytes = networkInterface.hardwareAddress ?: return "Not Available"
+                val mac = StringBuilder()
+                for (b in macBytes) {
+                    mac.append(String.format("%02X:", b))
                 }
-            },
-            modifier = Modifier.fillMaxSize()
+                if (mac.isNotEmpty()) {
+                    mac.deleteCharAt(mac.length - 1)
+                }
+                return mac.toString()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return "Not Available"
+    }
+
+    private fun getWifiIpAddress(context: Context): String {
+        val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+        val ipAddress = wifiManager.connectionInfo.ipAddress
+        return String.format(
+            "%d.%d.%d.%d",
+            ipAddress and 0xff,
+            ipAddress shr 8 and 0xff,
+            ipAddress shr 16 and 0xff,
+            ipAddress shr 24 and 0xff
+        )
+    }
+
+    private fun getEthernetIpAddress(): String {
+        try {
+            val networkInterfaces = NetworkInterface.getNetworkInterfaces()
+            while (networkInterfaces.hasMoreElements()) {
+                val networkInterface = networkInterfaces.nextElement()
+                if (!networkInterface.name.equals("eth0", ignoreCase = true)) continue
+                val inetAddresses = networkInterface.inetAddresses
+                while (inetAddresses.hasMoreElements()) {
+                    val inetAddress = inetAddresses.nextElement()
+                    if (!inetAddress.isLoopbackAddress && inetAddress.hostAddress.indexOf(':') < 0) {
+                        return inetAddress.hostAddress
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return "Not Available"
+    }
+
+    private fun getNetworkType(context: Context): String {
+        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val network = connectivityManager.activeNetwork ?: return "Not Connected"
+        val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return "Unknown"
+        return when {
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "Wi-Fi"
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "Cellular"
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "Ethernet"
+            else -> "Unknown"
+        }
+    }
+
+    private fun isVpnActive(context: Context): Boolean {
+        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val network = connectivityManager.activeNetwork ?: return false
+        val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+        return capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
+    }
+
+    private fun getDnsServers(): String {
+        val dnsServers = mutableListOf<String>()
+        try {
+            val systemProperties = Class.forName("android.os.SystemProperties")
+            val method = systemProperties.getMethod("get", String::class.java)
+            for (i in 1..4) {
+                val dns = method.invoke(null, "net.dns$i") as String
+                if (dns.isNotEmpty()) {
+                    dnsServers.add(dns)
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return if (dnsServers.isEmpty()) "Not Available" else dnsServers.joinToString(", ")
+    }
+}
+
+@Composable
+fun NetworkInfoScreen(viewModel: NetworkInfoViewModel = viewModel()) {
+    val context = LocalContext.current
+    val networkInfo by viewModel.networkInfo.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.updateNetworkInfo(context)
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "Network Information",
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.padding(bottom = 16.dp)
         )
 
-        if (isLoading) {
-            CircularProgressIndicator(
-                modifier = Modifier.align(Alignment.Center)
-            )
+        LazyColumn {
+            networkInfo.forEach { (key, value) ->
+                item {
+                    NetworkInfoItem(key, value)
+                }
+            }
         }
 
-        errorMessage?.let {
-            Text(
-                text = it,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.align(Alignment.Center).padding(16.dp)
-            )
+        Spacer(modifier = Modifier.weight(1f))
+
+        Button(
+            onClick = { viewModel.updateNetworkInfo(context) },
+            modifier = Modifier.padding(top = 16.dp)
+        ) {
+            Text("Refresh")
         }
     }
 }
 
-fun getCustomUserAgent(context: Context): String {
-    val defaultUserAgent = WebSettings.getDefaultUserAgent(context)
-    val displayMetrics = context.resources.displayMetrics
-    val screenSizeInches = Math.sqrt(
-        (displayMetrics.widthPixels / displayMetrics.xdpi).toDouble().pow(2.0) +
-        (displayMetrics.heightPixels / displayMetrics.ydpi).toDouble().pow(2.0)
-    )
-    return "$defaultUserAgent LargeDisplay/${screenSizeInches.toInt()}inch"
-}
-
-fun getCustomHeaders(): Map<String, String> {
-    return mapOf(
-        "sec-ch-ua" to "\"Opera\";v=\"111\", \"Chromium\";v=\"125\", \"Not.A/Brand\";v=\"24\"",
-        "sec-ch-ua-mobile" to "?0",
-        "sec-ch-ua-arch" to "\"x86\"",
-        "sec-ch-ua-form-factors" to "\"Desktop\"",
-        "sec-ch-ua-full-version" to "\"111.0.5168.61\"",
-        "sec-ch-ua-platform-version" to "\"15.0.0\"",
-        "Referer" to "https://lens.google.com/",
-        "sec-ch-ua-full-version-list" to "\"Opera\";v=\"111.0.5168.61\", \"Chromium\";v=\"125.0.6422.143\", \"Not.A/Brand\";v=\"24.0.0.0\"",
-        "sec-ch-ua-bitness" to "\"64\"",
-        "sec-ch-ua-model" to "\"\"",
-        "sec-ch-ua-wow64" to "?0",
-        "sec-ch-ua-platform" to "\"Windows\""
-    )
+@Composable
+fun NetworkInfoItem(key: String, value: String) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(text = key, fontWeight = FontWeight.Bold)
+            Text(text = value)
+        }
+    }
 }
