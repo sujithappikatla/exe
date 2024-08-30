@@ -15,8 +15,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.net.NetworkInterface
 
@@ -37,8 +41,8 @@ class MainActivity : ComponentActivity() {
 }
 
 class NetworkInfoViewModel : ViewModel() {
-    private val _networkInfo = mutableStateOf<Map<String, String>>(emptyMap())
-    val networkInfo: State<Map<String, String>> = _networkInfo
+    private val _networkInfo = MutableStateFlow<Map<String, String>>(emptyMap())
+    val networkInfo: StateFlow<Map<String, String>> = _networkInfo.asStateFlow()
 
     fun updateNetworkInfo(context: Context) {
         viewModelScope.launch(Dispatchers.IO) {
