@@ -94,7 +94,7 @@ fun InfoSection(title: String, items: List<Pair<String, String>>) {
                     fontWeight = FontWeight.Medium
                 )
                 Text(
-                    text = value,
+                    text = value ?: "N/A",
                     modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.bodyMedium
                 )
@@ -105,9 +105,9 @@ fun InfoSection(title: String, items: List<Pair<String, String>>) {
 
 fun getDeviceInfo(): List<Pair<String, String>> {
     return listOf(
-        "Manufacturer" to Build.MANUFACTURER,
-        "Model" to Build.MODEL,
-        "Android Version" to Build.VERSION.RELEASE,
+        "Manufacturer" to (Build.MANUFACTURER ?: "Unknown"),
+        "Model" to (Build.MODEL ?: "Unknown"),
+        "Android Version" to (Build.VERSION.RELEASE ?: "Unknown"),
         "API Level" to Build.VERSION.SDK_INT.toString()
     )
 }
@@ -117,7 +117,7 @@ fun getDisplayInfo(context: Context): List<Pair<String, String>> {
     return listOf(
         "Resolution" to "${displayMetrics.widthPixels} x ${displayMetrics.heightPixels}",
         "Density" to "${displayMetrics.densityDpi} dpi",
-        "Refresh Rate" to "${context.display?.refreshRate?.toInt()} Hz"
+        "Refresh Rate" to "${context.display?.refreshRate?.toInt() ?: "Unknown"} Hz"
     )
 }
 
@@ -138,7 +138,11 @@ fun getNetworkInfo(context: Context, refreshTrigger: Int): List<Pair<String, Str
         connectivityManager.getNetworkCapabilities(activeNetwork)
     }
 
-    val wifiIpAddress = Formatter.formatIpAddress(wifiInfo.ipAddress)
+    val wifiIpAddress = try {
+        Formatter.formatIpAddress(wifiInfo.ipAddress)
+    } catch (e: Exception) {
+        "Unavailable"
+    }
     val wifiMacAddress = getMacAddress("wlan0")
     
     val mobileIpAddress = if (networkCapabilities?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true) {
@@ -158,21 +162,12 @@ fun getNetworkInfo(context: Context, refreshTrigger: Int): List<Pair<String, Str
 
 fun getMacAddress(interfaceName: String): String {
     try {
-        val interfaces = NetworkInterface.getNetworkInterfaces()
+        val interfaces = NetworkInterface.getNetworkInterfaces() ?: return "Unavailable"
         while (interfaces.hasMoreElements()) {
             val networkInterface = interfaces.nextElement()
             if (networkInterface.name.equals(interfaceName, ignoreCase = true)) {
-                val macBytes = networkInterface.hardwareAddress
-                if (macBytes != null) {
-                    val stringBuilder = StringBuilder()
-                    for (b in macBytes) {
-                        stringBuilder.append(String.format("%02X:", b))
-                    }
-                    if (stringBuilder.isNotEmpty()) {
-                        stringBuilder.deleteCharAt(stringBuilder.length - 1)
-                    }
-                    return stringBuilder.toString()
-                }
+                val macBytes = networkInterface.hardwareAddress ?: return "Unavailable"
+                return macBytes.joinToString(":") { "%02X".format(it) }
             }
         }
     } catch (e: Exception) {
@@ -183,7 +178,7 @@ fun getMacAddress(interfaceName: String): String {
 
 fun getMobileIpAddress(): String {
     try {
-        val interfaces = NetworkInterface.getNetworkInterfaces()
+        val interfaces = NetworkInterface.getNetworkInterfaces() ?: return "Unavailable"
         while (interfaces.hasMoreElements()) {
             val networkInterface = interfaces.nextElement()
             if (networkInterface.name.startsWith("rmnet")) {
@@ -224,10 +219,17 @@ fun getMemoryInfo(context: Context): List<Pair<String, String>> {
 }
 
 fun getGpuInfo(): List<Pair<String, String>> {
-    return listOf(
-        "GPU Vendor" to android.opengl.GLES20.glGetString(android.opengl.GLES20.GL_VENDOR),
-        "GPU Renderer" to android.opengl.GLES20.glGetString(android.opengl.GLES20.GL_RENDERER)
-    )
+    return try {
+        listOf(
+            "GPU Vendor" to (android.opengl.GLES20.glGetString(android.opengl.GLES20.GL_VENDOR) ?: "Unknown"),
+            "GPU Renderer" to (android.opengl.GLES20.glGetString(android.opengl.GLES20.GL_RENDERER) ?: "Unknown")
+        )
+    } catch (e: Exception) {
+        listOf(
+            "GPU Vendor" to "Unavailable",
+            "GPU Renderer" to "Unavailable"
+        )
+    }
 }
 
 @Composable
