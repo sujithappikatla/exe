@@ -1,4 +1,7 @@
+import android.app.ActivityManager
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Bundle
@@ -8,7 +11,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -34,11 +37,17 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun DeviceInfoApp() {
     val context = LocalContext.current
+    var refreshTrigger by remember { mutableStateOf(0) }
     
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("DeviceInfo") },
+                actions = {
+                    IconButton(onClick = { refreshTrigger++ }) {
+                        Text("Refresh")
+                    }
+                },
                 colors = TopAppBarDefaults.smallTopAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -54,8 +63,10 @@ fun DeviceInfoApp() {
         ) {
             item { InfoSection("Device", getDeviceInfo()) }
             item { InfoSection("Display", getDisplayInfo(context)) }
-            item { InfoSection("Network", getNetworkInfo(context)) }
+            item { InfoSection("Network", getNetworkInfo(context, refreshTrigger)) }
             item { InfoSection("Storage", getStorageInfo(context)) }
+            item { InfoSection("Memory", getMemoryInfo(context)) }
+            item { InfoSection("GPU", getGpuInfo()) }
         }
     }
 }
@@ -110,23 +121,47 @@ fun getDisplayInfo(context: Context): List<Pair<String, String>> {
     )
 }
 
-fun getNetworkInfo(context: Context): List<Pair<String, String>> {
+@Composable
+fun getNetworkInfo(context: Context, refreshTrigger: Int): List<Pair<String, String>> {
     val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-    val ipAddress = Formatter.formatIpAddress(wifiManager.connectionInfo.ipAddress)
-    val macAddress = getMacAddress()
+    val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    
+    val wifiInfo = remember(refreshTrigger) {
+        wifiManager.connectionInfo
+    }
+    
+    val activeNetwork = remember(refreshTrigger) {
+        connectivityManager.activeNetwork
+    }
+    
+    val networkCapabilities = remember(refreshTrigger) {
+        connectivityManager.getNetworkCapabilities(activeNetwork)
+    }
+
+    val wifiIpAddress = Formatter.formatIpAddress(wifiInfo.ipAddress)
+    val wifiMacAddress = getMacAddress("wlan0")
+    
+    val mobileIpAddress = if (networkCapabilities?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true) {
+        getMobileIpAddress()
+    } else {
+        "Not connected"
+    }
+    val mobileMacAddress = getMacAddress("rmnet0")
 
     return listOf(
-        "IP Address" to ipAddress,
-        "MAC Address" to macAddress
+        "WiFi IP" to wifiIpAddress,
+        "WiFi MAC" to wifiMacAddress,
+        "Mobile IP" to mobileIpAddress,
+        "Mobile MAC" to mobileMacAddress
     )
 }
 
-fun getMacAddress(): String {
+fun getMacAddress(interfaceName: String): String {
     try {
-        val networkInterfaces = NetworkInterface.getNetworkInterfaces()
-        while (networkInterfaces.hasMoreElements()) {
-            val networkInterface = networkInterfaces.nextElement()
-            if (networkInterface.name.equals("wlan0", ignoreCase = true)) {
+        val interfaces = NetworkInterface.getNetworkInterfaces()
+        while (interfaces.hasMoreElements()) {
+            val networkInterface = interfaces.nextElement()
+            if (networkInterface.name.equals(interfaceName, ignoreCase = true)) {
                 val macBytes = networkInterface.hardwareAddress
                 if (macBytes != null) {
                     val stringBuilder = StringBuilder()
@@ -146,12 +181,52 @@ fun getMacAddress(): String {
     return "Unavailable"
 }
 
+fun getMobileIpAddress(): String {
+    try {
+        val interfaces = NetworkInterface.getNetworkInterfaces()
+        while (interfaces.hasMoreElements()) {
+            val networkInterface = interfaces.nextElement()
+            if (networkInterface.name.startsWith("rmnet")) {
+                val addresses = networkInterface.inetAddresses
+                while (addresses.hasMoreElements()) {
+                    val address = addresses.nextElement()
+                    if (!address.isLoopbackAddress && address.hostAddress.indexOf(':') < 0) {
+                        return address.hostAddress
+                    }
+                }
+            }
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+    return "Unavailable"
+}
+
 fun getStorageInfo(context: Context): List<Pair<String, String>> {
     val totalSpace = context.filesDir.totalSpace / (1024 * 1024 * 1024)
     val freeSpace = context.filesDir.freeSpace / (1024 * 1024 * 1024)
     return listOf(
         "Total Storage" to "$totalSpace GB",
         "Free Storage" to "$freeSpace GB"
+    )
+}
+
+fun getMemoryInfo(context: Context): List<Pair<String, String>> {
+    val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+    val memoryInfo = ActivityManager.MemoryInfo()
+    activityManager.getMemoryInfo(memoryInfo)
+    val totalMemory = memoryInfo.totalMem / (1024 * 1024)
+    val availableMemory = memoryInfo.availMem / (1024 * 1024)
+    return listOf(
+        "Total RAM" to "$totalMemory MB",
+        "Available RAM" to "$availableMemory MB"
+    )
+}
+
+fun getGpuInfo(): List<Pair<String, String>> {
+    return listOf(
+        "GPU Vendor" to android.opengl.GLES20.glGetString(android.opengl.GLES20.GL_VENDOR),
+        "GPU Renderer" to android.opengl.GLES20.glGetString(android.opengl.GLES20.GL_RENDERER)
     )
 }
 
