@@ -1,9 +1,8 @@
-import android.Manifest
 import android.content.Context
-import android.content.pm.PackageManager
+import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Bundle
-import android.telephony.TelephonyManager
+import android.text.format.Formatter
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
@@ -14,7 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.core.app.ActivityCompat
+import java.net.NetworkInterface
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -53,13 +52,10 @@ fun DeviceInfoApp() {
                 .padding(innerPadding)
                 .padding(16.dp)
         ) {
-            item { InfoSection("Device", getDeviceInfo(context)) }
+            item { InfoSection("Device", getDeviceInfo()) }
             item { InfoSection("Display", getDisplayInfo(context)) }
-            item { InfoSection("System", getSystemInfo()) }
             item { InfoSection("Network", getNetworkInfo(context)) }
-            item { InfoSection("Battery", getBatteryInfo(context)) }
             item { InfoSection("Storage", getStorageInfo(context)) }
-            item { InfoSection("Sensors", getSensorInfo(context)) }
         }
     }
 }
@@ -96,14 +92,12 @@ fun InfoSection(title: String, items: List<Pair<String, String>>) {
     }
 }
 
-// Helper functions to get device information
-fun getDeviceInfo(context: Context): List<Pair<String, String>> {
+fun getDeviceInfo(): List<Pair<String, String>> {
     return listOf(
         "Manufacturer" to Build.MANUFACTURER,
         "Model" to Build.MODEL,
         "Android Version" to Build.VERSION.RELEASE,
-        "API Level" to Build.VERSION.SDK_INT.toString(),
-        "Build Number" to Build.DISPLAY
+        "API Level" to Build.VERSION.SDK_INT.toString()
     )
 }
 
@@ -116,31 +110,40 @@ fun getDisplayInfo(context: Context): List<Pair<String, String>> {
     )
 }
 
-fun getSystemInfo(): List<Pair<String, String>> {
-    return listOf(
-        "CPU" to Build.HARDWARE,
-        "Cores" to Runtime.getRuntime().availableProcessors().toString(),
-        "RAM" to "${Runtime.getRuntime().totalMemory() / 1024 / 1024} MB"
-    )
-}
-
 fun getNetworkInfo(context: Context): List<Pair<String, String>> {
-    val telephonyManager = context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+    val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+    val ipAddress = Formatter.formatIpAddress(wifiManager.connectionInfo.ipAddress)
+    val macAddress = getMacAddress()
+
     return listOf(
-        "Network Type" to when {
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.N -> telephonyManager.dataNetworkType.toString()
-            else -> telephonyManager.networkType.toString()
-        },
-        "SIM Operator" to telephonyManager.simOperatorName
+        "IP Address" to ipAddress,
+        "MAC Address" to macAddress
     )
 }
 
-fun getBatteryInfo(context: Context): List<Pair<String, String>> {
-    // You'll need to implement battery info retrieval using BatteryManager
-    return listOf(
-        "Battery Level" to "Implement using BatteryManager",
-        "Charging Status" to "Implement using BatteryManager"
-    )
+fun getMacAddress(): String {
+    try {
+        val networkInterfaces = NetworkInterface.getNetworkInterfaces()
+        while (networkInterfaces.hasMoreElements()) {
+            val networkInterface = networkInterfaces.nextElement()
+            if (networkInterface.name.equals("wlan0", ignoreCase = true)) {
+                val macBytes = networkInterface.hardwareAddress
+                if (macBytes != null) {
+                    val stringBuilder = StringBuilder()
+                    for (b in macBytes) {
+                        stringBuilder.append(String.format("%02X:", b))
+                    }
+                    if (stringBuilder.isNotEmpty()) {
+                        stringBuilder.deleteCharAt(stringBuilder.length - 1)
+                    }
+                    return stringBuilder.toString()
+                }
+            }
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+    return "Unavailable"
 }
 
 fun getStorageInfo(context: Context): List<Pair<String, String>> {
@@ -150,14 +153,6 @@ fun getStorageInfo(context: Context): List<Pair<String, String>> {
         "Total Storage" to "$totalSpace GB",
         "Free Storage" to "$freeSpace GB"
     )
-}
-
-fun getSensorInfo(context: Context): List<Pair<String, String>> {
-    val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as android.hardware.SensorManager
-    val sensors = sensorManager.getSensorList(android.hardware.Sensor.TYPE_ALL)
-    return sensors.take(5).map { sensor ->
-        sensor.name to sensor.stringType
-    }
 }
 
 @Composable
