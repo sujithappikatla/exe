@@ -3,6 +3,7 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.wifi.WifiManager
+import android.opengl.GLES20
 import android.os.Build
 import android.os.Bundle
 import android.text.format.Formatter
@@ -223,15 +224,17 @@ fun getMemoryInfo(context: Context): List<Pair<String, String>> {
 fun getGpuInfo(context: Context): List<Pair<String, String>> {
     return try {
         val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-        val deviceInfo = ActivityManager.DeviceConfigurationInfo()
+        val openGlVersion = activityManager.deviceConfigurationInfo.glEsVersion
         listOf(
-            "OpenGL ES Version" to deviceInfo.glEsVersion,
-            "GPU Info" to "Available (Details not accessible)"
+            "OpenGL ES Version" to openGlVersion,
+            "GPU Vendor" to GLES20.glGetString(GLES20.GL_VENDOR),
+            "GPU Renderer" to GLES20.glGetString(GLES20.GL_RENDERER)
         )
     } catch (e: Exception) {
         listOf(
             "OpenGL ES Version" to "Unavailable",
-            "GPU Info" to "Unavailable"
+            "GPU Vendor" to "Unavailable",
+            "GPU Renderer" to "Unavailable"
         )
     }
 }
