@@ -143,7 +143,7 @@ fun getNetworkInfo(context: Context, refreshTrigger: Int): List<Pair<String, Str
     } catch (e: Exception) {
         "Unavailable"
     }
-    val wifiMacAddress = getMacAddress("wlan0")
+    val wifiMacAddress = getWifiMacAddress(context)
     
     val mobileIpAddress = if (networkCapabilities?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true) {
         getMobileIpAddress()
@@ -158,6 +158,38 @@ fun getNetworkInfo(context: Context, refreshTrigger: Int): List<Pair<String, Str
         "Mobile IP" to mobileIpAddress,
         "Mobile MAC" to mobileMacAddress
     )
+}
+
+fun getWifiMacAddress(context: Context): String {
+    val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+    var macAddress = wifiManager.connectionInfo.macAddress
+    
+    if (macAddress == null || macAddress == "02:00:00:00:00:00") {
+        try {
+            val interfaces = NetworkInterface.getNetworkInterfaces()
+            while (interfaces.hasMoreElements()) {
+                val networkInterface = interfaces.nextElement()
+                if (networkInterface.name.equals("wlan0", ignoreCase = true)) {
+                    val mac = networkInterface.hardwareAddress
+                    if (mac != null) {
+                        val stringBuilder = StringBuilder()
+                        for (b in mac) {
+                            stringBuilder.append(String.format("%02X:", b))
+                        }
+                        if (stringBuilder.isNotEmpty()) {
+                            stringBuilder.deleteCharAt(stringBuilder.length - 1)
+                        }
+                        macAddress = stringBuilder.toString()
+                        break
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+    
+    return macAddress ?: "Unavailable"
 }
 
 fun getMacAddress(interfaceName: String): String {
