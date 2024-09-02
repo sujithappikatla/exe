@@ -1,211 +1,170 @@
+import android.Manifest
 import android.content.Context
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
-import android.net.wifi.WifiManager
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
+import android.telephony.TelephonyManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.compose.viewModel
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
-import java.net.NetworkInterface
+import androidx.core.app.ActivityCompat
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme {
+            DeviceInfoTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    NetworkInfoScreen()
+                    DeviceInfoApp()
                 }
             }
         }
-    }
-}
-
-class NetworkInfoViewModel : ViewModel() {
-    private val _networkInfo = MutableStateFlow<Map<String, String>>(emptyMap())
-    val networkInfo: StateFlow<Map<String, String>> = _networkInfo.asStateFlow()
-
-    fun updateNetworkInfo(context: Context) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val info = mutableMapOf<String, String>()
-            
-            // Get MAC address
-            info["MAC Address"] = getMacAddress()
-            
-            // Get IP addresses
-            info["Wi-Fi IP"] = getWifiIpAddress(context)
-            info["Ethernet IP"] = getEthernetIpAddress()
-            
-            // Additional network information
-            info["Network Type"] = getNetworkType(context)
-            info["Is VPN Active"] = isVpnActive(context).toString()
-            info["DNS Servers"] = getDnsServers()
-            
-            _networkInfo.value = info
-        }
-    }
-
-    private fun getMacAddress(): String {
-        try {
-            val networkInterfaces = NetworkInterface.getNetworkInterfaces()
-            while (networkInterfaces.hasMoreElements()) {
-                val networkInterface = networkInterfaces.nextElement()
-                if (!networkInterface.name.equals("wlan0", ignoreCase = true)) continue
-                val macBytes = networkInterface.hardwareAddress ?: return "Not Available"
-                val mac = StringBuilder()
-                for (b in macBytes) {
-                    mac.append(String.format("%02X:", b))
-                }
-                if (mac.isNotEmpty()) {
-                    mac.deleteCharAt(mac.length - 1)
-                }
-                return mac.toString()
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        return "Not Available"
-    }
-
-    private fun getWifiIpAddress(context: Context): String {
-        val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-        val ipAddress = wifiManager.connectionInfo.ipAddress
-        return String.format(
-            "%d.%d.%d.%d",
-            ipAddress and 0xff,
-            ipAddress shr 8 and 0xff,
-            ipAddress shr 16 and 0xff,
-            ipAddress shr 24 and 0xff
-        )
-    }
-
-    private fun getEthernetIpAddress(): String {
-        try {
-            val networkInterfaces = NetworkInterface.getNetworkInterfaces()
-            while (networkInterfaces.hasMoreElements()) {
-                val networkInterface = networkInterfaces.nextElement()
-                if (!networkInterface.name.equals("eth0", ignoreCase = true)) continue
-                val inetAddresses = networkInterface.inetAddresses
-                while (inetAddresses.hasMoreElements()) {
-                    val inetAddress = inetAddresses.nextElement()
-                    if (!inetAddress.isLoopbackAddress && inetAddress.hostAddress.indexOf(':') < 0) {
-                        return inetAddress.hostAddress
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        return "Not Available"
-    }
-
-    private fun getNetworkType(context: Context): String {
-        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val network = connectivityManager.activeNetwork ?: return "Not Connected"
-        val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return "Unknown"
-        return when {
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "Wi-Fi"
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "Cellular"
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "Ethernet"
-            else -> "Unknown"
-        }
-    }
-
-    private fun isVpnActive(context: Context): Boolean {
-        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val network = connectivityManager.activeNetwork ?: return false
-        val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
-        return capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
-    }
-
-    private fun getDnsServers(): String {
-        val dnsServers = mutableListOf<String>()
-        try {
-            val systemProperties = Class.forName("android.os.SystemProperties")
-            val method = systemProperties.getMethod("get", String::class.java)
-            for (i in 1..4) {
-                val dns = method.invoke(null, "net.dns$i") as String
-                if (dns.isNotEmpty()) {
-                    dnsServers.add(dns)
-                }
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        return if (dnsServers.isEmpty()) "Not Available" else dnsServers.joinToString(", ")
     }
 }
 
 @Composable
-fun NetworkInfoScreen(viewModel: NetworkInfoViewModel = viewModel()) {
+fun DeviceInfoApp() {
     val context = LocalContext.current
-    val networkInfo by viewModel.networkInfo.collectAsState()
-
-    LaunchedEffect(Unit) {
-        viewModel.updateNetworkInfo(context)
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = "Network Information",
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-
-        LazyColumn {
-            networkInfo.forEach { (key, value) ->
-                item {
-                    NetworkInfoItem(key, value)
-                }
-            }
+    
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("DeviceInfo") },
+                colors = TopAppBarDefaults.smallTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+            )
         }
-
-        Spacer(modifier = Modifier.weight(1f))
-
-        Button(
-            onClick = { viewModel.updateNetworkInfo(context) },
-            modifier = Modifier.padding(top = 16.dp)
+    ) { innerPadding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(16.dp)
         ) {
-            Text("Refresh")
+            item { InfoSection("Device", getDeviceInfo(context)) }
+            item { InfoSection("Display", getDisplayInfo(context)) }
+            item { InfoSection("System", getSystemInfo()) }
+            item { InfoSection("Network", getNetworkInfo(context)) }
+            item { InfoSection("Battery", getBatteryInfo(context)) }
+            item { InfoSection("Storage", getStorageInfo(context)) }
+            item { InfoSection("Sensors", getSensorInfo(context)) }
         }
     }
 }
 
 @Composable
-fun NetworkInfoItem(key: String, value: String) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(text = key, fontWeight = FontWeight.Bold)
-            Text(text = value)
+fun InfoSection(title: String, items: List<Pair<String, String>>) {
+    Column(modifier = Modifier.padding(vertical = 8.dp)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        items.forEach { (key, value) ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp)
+            ) {
+                Text(
+                    text = key,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = value,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
         }
     }
+}
+
+// Helper functions to get device information
+fun getDeviceInfo(context: Context): List<Pair<String, String>> {
+    return listOf(
+        "Manufacturer" to Build.MANUFACTURER,
+        "Model" to Build.MODEL,
+        "Android Version" to Build.VERSION.RELEASE,
+        "API Level" to Build.VERSION.SDK_INT.toString(),
+        "Build Number" to Build.DISPLAY
+    )
+}
+
+fun getDisplayInfo(context: Context): List<Pair<String, String>> {
+    val displayMetrics = context.resources.displayMetrics
+    return listOf(
+        "Resolution" to "${displayMetrics.widthPixels} x ${displayMetrics.heightPixels}",
+        "Density" to "${displayMetrics.densityDpi} dpi",
+        "Refresh Rate" to "${context.display?.refreshRate?.toInt()} Hz"
+    )
+}
+
+fun getSystemInfo(): List<Pair<String, String>> {
+    return listOf(
+        "CPU" to Build.HARDWARE,
+        "Cores" to Runtime.getRuntime().availableProcessors().toString(),
+        "RAM" to "${Runtime.getRuntime().totalMemory() / 1024 / 1024} MB"
+    )
+}
+
+fun getNetworkInfo(context: Context): List<Pair<String, String>> {
+    val telephonyManager = context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+    return listOf(
+        "Network Type" to when {
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.N -> telephonyManager.dataNetworkType.toString()
+            else -> telephonyManager.networkType.toString()
+        },
+        "SIM Operator" to telephonyManager.simOperatorName
+    )
+}
+
+fun getBatteryInfo(context: Context): List<Pair<String, String>> {
+    // You'll need to implement battery info retrieval using BatteryManager
+    return listOf(
+        "Battery Level" to "Implement using BatteryManager",
+        "Charging Status" to "Implement using BatteryManager"
+    )
+}
+
+fun getStorageInfo(context: Context): List<Pair<String, String>> {
+    val totalSpace = context.filesDir.totalSpace / (1024 * 1024 * 1024)
+    val freeSpace = context.filesDir.freeSpace / (1024 * 1024 * 1024)
+    return listOf(
+        "Total Storage" to "$totalSpace GB",
+        "Free Storage" to "$freeSpace GB"
+    )
+}
+
+fun getSensorInfo(context: Context): List<Pair<String, String>> {
+    val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as android.hardware.SensorManager
+    val sensors = sensorManager.getSensorList(android.hardware.Sensor.TYPE_ALL)
+    return sensors.take(5).map { sensor ->
+        sensor.name to sensor.stringType
+    }
+}
+
+@Composable
+fun DeviceInfoTheme(content: @Composable () -> Unit) {
+    MaterialTheme(
+        colorScheme = darkColorScheme(),
+        typography = Typography(),
+        content = content
+    )
 }
