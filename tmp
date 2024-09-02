@@ -9,7 +9,8 @@ import android.text.format.Formatter
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -55,18 +56,19 @@ fun DeviceInfoApp() {
             )
         }
     ) { innerPadding ->
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
                 .padding(16.dp)
+                .verticalScroll(rememberScrollState())
         ) {
-            item { InfoSection("Device", getDeviceInfo()) }
-            item { InfoSection("Display", getDisplayInfo(context)) }
-            item { InfoSection("Network", getNetworkInfo(context, refreshTrigger)) }
-            item { InfoSection("Storage", getStorageInfo(context)) }
-            item { InfoSection("Memory", getMemoryInfo(context)) }
-            item { InfoSection("GPU", getGpuInfo()) }
+            InfoSection("Device", getDeviceInfo())
+            InfoSection("Display", getDisplayInfo(context))
+            InfoSection("Network", getNetworkInfo(context, refreshTrigger))
+            InfoSection("Storage", getStorageInfo(context))
+            InfoSection("Memory", getMemoryInfo(context))
+            InfoSection("GPU", getGpuInfo(context))
         }
     }
 }
@@ -94,7 +96,7 @@ fun InfoSection(title: String, items: List<Pair<String, String>>) {
                     fontWeight = FontWeight.Medium
                 )
                 Text(
-                    text = value ?: "N/A",
+                    text = value,
                     modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.bodyMedium
                 )
@@ -161,7 +163,7 @@ fun getNetworkInfo(context: Context, refreshTrigger: Int): List<Pair<String, Str
 }
 
 fun getMacAddress(interfaceName: String): String {
-    try {
+    return try {
         val interfaces = NetworkInterface.getNetworkInterfaces() ?: return "Unavailable"
         while (interfaces.hasMoreElements()) {
             val networkInterface = interfaces.nextElement()
@@ -170,14 +172,14 @@ fun getMacAddress(interfaceName: String): String {
                 return macBytes.joinToString(":") { "%02X".format(it) }
             }
         }
+        "Unavailable"
     } catch (e: Exception) {
-        e.printStackTrace()
+        "Unavailable"
     }
-    return "Unavailable"
 }
 
 fun getMobileIpAddress(): String {
-    try {
+    return try {
         val interfaces = NetworkInterface.getNetworkInterfaces() ?: return "Unavailable"
         while (interfaces.hasMoreElements()) {
             val networkInterface = interfaces.nextElement()
@@ -191,10 +193,10 @@ fun getMobileIpAddress(): String {
                 }
             }
         }
+        "Unavailable"
     } catch (e: Exception) {
-        e.printStackTrace()
+        "Unavailable"
     }
-    return "Unavailable"
 }
 
 fun getStorageInfo(context: Context): List<Pair<String, String>> {
@@ -218,16 +220,18 @@ fun getMemoryInfo(context: Context): List<Pair<String, String>> {
     )
 }
 
-fun getGpuInfo(): List<Pair<String, String>> {
+fun getGpuInfo(context: Context): List<Pair<String, String>> {
     return try {
+        val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val deviceInfo = ActivityManager.DeviceConfigurationInfo()
         listOf(
-            "GPU Vendor" to (android.opengl.GLES20.glGetString(android.opengl.GLES20.GL_VENDOR) ?: "Unknown"),
-            "GPU Renderer" to (android.opengl.GLES20.glGetString(android.opengl.GLES20.GL_RENDERER) ?: "Unknown")
+            "OpenGL ES Version" to deviceInfo.glEsVersion,
+            "GPU Info" to "Available (Details not accessible)"
         )
     } catch (e: Exception) {
         listOf(
-            "GPU Vendor" to "Unavailable",
-            "GPU Renderer" to "Unavailable"
+            "OpenGL ES Version" to "Unavailable",
+            "GPU Info" to "Unavailable"
         )
     }
 }
