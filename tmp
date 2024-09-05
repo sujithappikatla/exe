@@ -1,131 +1,132 @@
-// MainActivity.kt
+// WhiteboardScreen.kt
 package com.example.whiteboardapp
 
-import android.os.Bundle
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
 
-class MainActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContent {
-            MaterialTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    val viewModel: WhiteboardViewModel = viewModel()
-                    WhiteboardScreen(viewModel)
+@Composable
+fun WhiteboardScreen(viewModel: WhiteboardViewModel) {
+    val currentTool by viewModel.currentTool.collectAsState()
+    val currentColor by viewModel.currentColor.collectAsState()
+    val currentWidth by viewModel.currentWidth.collectAsState()
+    val canvasBackgroundColor by viewModel.canvasBackgroundColor.collectAsState()
+    val currentPage by viewModel.currentPage.collectAsState()
+    val pages by viewModel.pages.collectAsState()
+
+    var path by remember { mutableStateOf(Path()) }
+    var lastTouchPoint by remember { mutableStateOf<Offset?>(null) }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(canvasBackgroundColor)
+                .pointerInput(currentTool, currentColor, currentWidth) {
+                    detectDragGestures(
+                        onDragStart = { touchPoint ->
+                            path = Path().apply { moveTo(touchPoint.x, touchPoint.y) }
+                            lastTouchPoint = touchPoint
+                        },
+                        onDrag = { change, _ ->
+                            val newPoint = change.position
+                            lastTouchPoint?.let { lastPoint ->
+                                path.quadraticBezierTo(
+                                    lastPoint.x,
+                                    lastPoint.y,
+                                    (newPoint.x + lastPoint.x) / 2,
+                                    (newPoint.y + lastPoint.y) / 2
+                                )
+                            }
+                            lastTouchPoint = newPoint
+                            viewModel.addPathToCurrentPage(
+                                DrawingPathData(
+                                    path = path,
+                                    color = currentColor,
+                                    width = currentWidth,
+                                    tool = currentTool
+                                )
+                            )
+                        },
+                        onDragEnd = {
+                            lastTouchPoint = null
+                        }
+                    )
                 }
+        ) {
+            pages[currentPage].forEach { pathData ->
+                drawPath(
+                    path = pathData.path,
+                    color = pathData.color,
+                    alpha = if (pathData.tool == DrawingTool.Brush) 0.3f else 1f,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = pathData.width)
+                )
             }
         }
+
+        ToolbarOverlay(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 16.dp),
+            viewModel = viewModel
+        )
     }
 }
 
-// WhiteboardViewModel.kt
-package com.example.whiteboardapp
-
-import androidx.compose.ui.graphics.Color
-import androidx.lifecycle.ViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-
-class WhiteboardViewModel : ViewModel() {
-    private val _currentTool = MutableStateFlow<DrawingTool>(DrawingTool.Pen)
-    val currentTool = _currentTool.asStateFlow()
-
-    private val _currentColor = MutableStateFlow(Color.Black)
-    val currentColor = _currentColor.asStateFlow()
-
-    private val _currentWidth = MutableStateFlow(5f)
-    val currentWidth = _currentWidth.asStateFlow()
-
-    private val _canvasBackgroundColor = MutableStateFlow(Color.White)
-    val canvasBackgroundColor = _canvasBackgroundColor.asStateFlow()
-
-    private val _currentPage = MutableStateFlow(0)
-    val currentPage = _currentPage.asStateFlow()
-
-    private val _pages = MutableStateFlow(listOf(mutableListOf<DrawingPathData>()))
-    val pages = _pages.asStateFlow()
-
-    fun setTool(tool: DrawingTool) {
-        _currentTool.value = tool
-    }
-
-    fun setColor(color: Color) {
-        _currentColor.value = color
-    }
-
-    fun setWidth(width: Float) {
-        _currentWidth.value = width
-    }
-
-    fun setCanvasBackgroundColor(color: Color) {
-        _canvasBackgroundColor.value = color
-    }
-
-    fun addPathToCurrentPage(path: DrawingPathData) {
-        val currentPagePaths = _pages.value[_currentPage.value].toMutableList()
-        currentPagePaths.add(path)
-        val updatedPages = _pages.value.toMutableList()
-        updatedPages[_currentPage.value] = currentPagePaths
-        _pages.value = updatedPages
-    }
-
-    fun undo() {
-        val currentPagePaths = _pages.value[_currentPage.value].toMutableList()
-        if (currentPagePaths.isNotEmpty()) {
-            currentPagePaths.removeAt(currentPagePaths.lastIndex)
-            val updatedPages = _pages.value.toMutableList()
-            updatedPages[_currentPage.value] = currentPagePaths
-            _pages.value = updatedPages
-        }
-    }
-
-    fun clearCurrentPage() {
-        val updatedPages = _pages.value.toMutableList()
-        updatedPages[_currentPage.value] = mutableListOf()
-        _pages.value = updatedPages
-    }
-
-    fun addNewPage() {
-        val updatedPages = _pages.value.toMutableList()
-        updatedPages.add(mutableListOf())
-        _pages.value = updatedPages
-        _currentPage.value = updatedPages.lastIndex
-    }
-
-    fun navigateToPage(pageIndex: Int) {
-        if (pageIndex in 0 until _pages.value.size) {
-            _currentPage.value = pageIndex
-        }
+@Composable
+fun ToolbarOverlay(modifier: Modifier = Modifier, viewModel: WhiteboardViewModel) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        ToolButton(
+            icon = R.drawable.ic_pen,
+            onClick = { viewModel.setTool(DrawingTool.Pen) }
+        )
+        ToolButton(
+            icon = R.drawable.ic_brush,
+            onClick = { viewModel.setTool(DrawingTool.Brush) }
+        )
+        ToolButton(
+            icon = R.drawable.ic_eraser,
+            onClick = { viewModel.setTool(DrawingTool.Eraser) }
+        )
+        ToolButton(
+            icon = R.drawable.ic_undo,
+            onClick = { viewModel.undo() }
+        )
+        ToolButton(
+            icon = R.drawable.ic_color,
+            onClick = { /* TODO: Implement color picker */ }
+        )
+        ToolButton(
+            icon = R.drawable.ic_width,
+            onClick = { /* TODO: Implement width picker */ }
+        )
+        ToolButton(
+            icon = R.drawable.ic_new_page,
+            onClick = { viewModel.addNewPage() }
+        )
     }
 }
 
-// DrawingTool.kt
-package com.example.whiteboardapp
-
-enum class DrawingTool {
-    Pen,
-    Brush,
-    Eraser
+@Composable
+fun ToolButton(icon: Int, onClick: () -> Unit) {
+    FloatingActionButton(
+        onClick = onClick,
+        modifier = Modifier.size(48.dp)
+    ) {
+        Icon(painter = painterResource(id = icon), contentDescription = null)
+    }
 }
-
-// DrawingPathData.kt
-package com.example.whiteboardapp
-
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-
-data class DrawingPathData(
-    val path: Path,
-    val color: Color,
-    val width: Float,
-    val tool: DrawingTool
-)
