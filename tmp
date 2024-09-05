@@ -1,132 +1,180 @@
-// WhiteboardScreen.kt
+// ColorPicker.kt
 package com.example.whiteboardapp
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+
+@Composable
+fun ColorPicker(
+    onColorSelected: (Color) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val colors = listOf(
+        Color.Black, Color.Gray, Color.Red, Color.Green, Color.Blue,
+        Color.Cyan, Color.Magenta, Color.Yellow, Color.White
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Select Color") },
+        text = {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(colors) { color ->
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(color)
+                            .border(2.dp, Color.Black, CircleShape)
+                            .clickable { onColorSelected(color) }
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+// WidthPicker.kt
+package com.example.whiteboardapp
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+
+@Composable
+fun WidthPicker(
+    initialWidth: Float,
+    onWidthSelected: (Float) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var selectedWidth by remember { mutableStateOf(initialWidth) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Select Width") },
+        text = {
+            Column {
+                Slider(
+                    value = selectedWidth,
+                    onValueChange = { selectedWidth = it },
+                    valueRange = 1f..50f,
+                    steps = 49
+                )
+                Text("Width: ${selectedWidth.toInt()}")
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onWidthSelected(selectedWidth) }) {
+                Text("Confirm")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+// PageNavigation.kt
+package com.example.whiteboardapp
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun WhiteboardScreen(viewModel: WhiteboardViewModel) {
-    val currentTool by viewModel.currentTool.collectAsState()
-    val currentColor by viewModel.currentColor.collectAsState()
-    val currentWidth by viewModel.currentWidth.collectAsState()
-    val canvasBackgroundColor by viewModel.canvasBackgroundColor.collectAsState()
-    val currentPage by viewModel.currentPage.collectAsState()
-    val pages by viewModel.pages.collectAsState()
-
-    var path by remember { mutableStateOf(Path()) }
-    var lastTouchPoint by remember { mutableStateOf<Offset?>(null) }
-
-    Box(modifier = Modifier.fillMaxSize()) {
-        Canvas(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(canvasBackgroundColor)
-                .pointerInput(currentTool, currentColor, currentWidth) {
-                    detectDragGestures(
-                        onDragStart = { touchPoint ->
-                            path = Path().apply { moveTo(touchPoint.x, touchPoint.y) }
-                            lastTouchPoint = touchPoint
-                        },
-                        onDrag = { change, _ ->
-                            val newPoint = change.position
-                            lastTouchPoint?.let { lastPoint ->
-                                path.quadraticBezierTo(
-                                    lastPoint.x,
-                                    lastPoint.y,
-                                    (newPoint.x + lastPoint.x) / 2,
-                                    (newPoint.y + lastPoint.y) / 2
-                                )
-                            }
-                            lastTouchPoint = newPoint
-                            viewModel.addPathToCurrentPage(
-                                DrawingPathData(
-                                    path = path,
-                                    color = currentColor,
-                                    width = currentWidth,
-                                    tool = currentTool
-                                )
-                            )
-                        },
-                        onDragEnd = {
-                            lastTouchPoint = null
-                        }
-                    )
-                }
+fun PageNavigation(
+    currentPage: Int,
+    totalPages: Int,
+    onPreviousPage: () -> Unit,
+    onNextPage: () -> Unit,
+    onAddNewPage: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(
+            onClick = onPreviousPage,
+            enabled = currentPage > 0
         ) {
-            pages[currentPage].forEach { pathData ->
-                drawPath(
-                    path = pathData.path,
-                    color = pathData.color,
-                    alpha = if (pathData.tool == DrawingTool.Brush) 0.3f else 1f,
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = pathData.width)
-                )
-            }
+            Icon(
+                painter = painterResource(id = R.drawable.ic_previous),
+                contentDescription = "Previous page"
+            )
         }
 
-        ToolbarOverlay(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 16.dp),
-            viewModel = viewModel
-        )
+        Text("Page ${currentPage + 1} of $totalPages")
+
+        IconButton(
+            onClick = onNextPage,
+            enabled = currentPage < totalPages - 1
+        ) {
+            Icon(
+                painter = painterResource(id = R.drawable.ic_next),
+                contentDescription = "Next page"
+            )
+        }
+
+        IconButton(onClick = onAddNewPage) {
+            Icon(
+                painter = painterResource(id = R.drawable.ic_add),
+                contentDescription = "Add new page"
+            )
+        }
     }
 }
 
-@Composable
-fun ToolbarOverlay(modifier: Modifier = Modifier, viewModel: WhiteboardViewModel) {
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        ToolButton(
-            icon = R.drawable.ic_pen,
-            onClick = { viewModel.setTool(DrawingTool.Pen) }
-        )
-        ToolButton(
-            icon = R.drawable.ic_brush,
-            onClick = { viewModel.setTool(DrawingTool.Brush) }
-        )
-        ToolButton(
-            icon = R.drawable.ic_eraser,
-            onClick = { viewModel.setTool(DrawingTool.Eraser) }
-        )
-        ToolButton(
-            icon = R.drawable.ic_undo,
-            onClick = { viewModel.undo() }
-        )
-        ToolButton(
-            icon = R.drawable.ic_color,
-            onClick = { /* TODO: Implement color picker */ }
-        )
-        ToolButton(
-            icon = R.drawable.ic_width,
-            onClick = { /* TODO: Implement width picker */ }
-        )
-        ToolButton(
-            icon = R.drawable.ic_new_page,
-            onClick = { viewModel.addNewPage() }
-        )
-    }
-}
+// Icons.kt
+package com.example.whiteboardapp
 
-@Composable
-fun ToolButton(icon: Int, onClick: () -> Unit) {
-    FloatingActionButton(
-        onClick = onClick,
-        modifier = Modifier.size(48.dp)
-    ) {
-        Icon(painter = painterResource(id = icon), contentDescription = null)
-    }
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.ui.graphics.vector.ImageVector
+
+object WhiteboardIcons {
+    val Pen: ImageVector = Icons.Default.Edit
+    val Brush: ImageVector = Icons.Default.Brush
+    val Eraser: ImageVector = Icons.Default.Delete
+    val Undo: ImageVector = Icons.Default.Undo
+    val Color: ImageVector = Icons.Default.Palette
+    val Width: ImageVector = Icons.Default.LineWeight
+    val NewPage: ImageVector = Icons.Default.Add
+    val Previous: ImageVector = Icons.Default.ArrowBack
+    val Next: ImageVector = Icons.Default.ArrowForward
 }
