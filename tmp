@@ -1,274 +1,131 @@
-import android.app.ActivityManager
-import android.content.Context
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
-import android.net.wifi.WifiManager
-import android.os.Build
+// MainActivity.kt
+package com.example.whiteboardapp
+
 import android.os.Bundle
-import android.text.format.Formatter
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import java.net.NetworkInterface
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            DeviceInfoTheme {
+            MaterialTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    DeviceInfoApp()
+                    val viewModel: WhiteboardViewModel = viewModel()
+                    WhiteboardScreen(viewModel)
                 }
             }
         }
     }
 }
 
-@Composable
-fun DeviceInfoApp() {
-    val context = LocalContext.current
-    var refreshTrigger by remember { mutableStateOf(0) }
-    
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("DeviceInfo") },
-                actions = {
-                    IconButton(onClick = { refreshTrigger++ }) {
-                        Text("Refresh")
-                    }
-                },
-                colors = TopAppBarDefaults.smallTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                )
-            )
-        }
-    ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(16.dp)
-        ) {
-            item { InfoSection("Device", getDeviceInfo()) }
-            item { InfoSection("Display", getDisplayInfo(context)) }
-            item { InfoSection("Network", getNetworkInfo(context, refreshTrigger)) }
-            item { InfoSection("Storage", getStorageInfo(context)) }
-            item { InfoSection("Memory", getMemoryInfo(context)) }
-            item { InfoSection("GPU", getGpuInfo()) }
-        }
-    }
-}
+// WhiteboardViewModel.kt
+package com.example.whiteboardapp
 
-@Composable
-fun InfoSection(title: String, items: List<Pair<String, String>>) {
-    Column(modifier = Modifier.padding(vertical = 8.dp)) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        items.forEach { (key, value) ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp)
-            ) {
-                Text(
-                    text = key,
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium
-                )
-                Text(
-                    text = value ?: "N/A",
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
+import androidx.compose.ui.graphics.Color
+import androidx.lifecycle.ViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+
+class WhiteboardViewModel : ViewModel() {
+    private val _currentTool = MutableStateFlow<DrawingTool>(DrawingTool.Pen)
+    val currentTool = _currentTool.asStateFlow()
+
+    private val _currentColor = MutableStateFlow(Color.Black)
+    val currentColor = _currentColor.asStateFlow()
+
+    private val _currentWidth = MutableStateFlow(5f)
+    val currentWidth = _currentWidth.asStateFlow()
+
+    private val _canvasBackgroundColor = MutableStateFlow(Color.White)
+    val canvasBackgroundColor = _canvasBackgroundColor.asStateFlow()
+
+    private val _currentPage = MutableStateFlow(0)
+    val currentPage = _currentPage.asStateFlow()
+
+    private val _pages = MutableStateFlow(listOf(mutableListOf<DrawingPathData>()))
+    val pages = _pages.asStateFlow()
+
+    fun setTool(tool: DrawingTool) {
+        _currentTool.value = tool
+    }
+
+    fun setColor(color: Color) {
+        _currentColor.value = color
+    }
+
+    fun setWidth(width: Float) {
+        _currentWidth.value = width
+    }
+
+    fun setCanvasBackgroundColor(color: Color) {
+        _canvasBackgroundColor.value = color
+    }
+
+    fun addPathToCurrentPage(path: DrawingPathData) {
+        val currentPagePaths = _pages.value[_currentPage.value].toMutableList()
+        currentPagePaths.add(path)
+        val updatedPages = _pages.value.toMutableList()
+        updatedPages[_currentPage.value] = currentPagePaths
+        _pages.value = updatedPages
+    }
+
+    fun undo() {
+        val currentPagePaths = _pages.value[_currentPage.value].toMutableList()
+        if (currentPagePaths.isNotEmpty()) {
+            currentPagePaths.removeAt(currentPagePaths.lastIndex)
+            val updatedPages = _pages.value.toMutableList()
+            updatedPages[_currentPage.value] = currentPagePaths
+            _pages.value = updatedPages
         }
     }
-}
 
-fun getDeviceInfo(): List<Pair<String, String>> {
-    return listOf(
-        "Manufacturer" to (Build.MANUFACTURER ?: "Unknown"),
-        "Model" to (Build.MODEL ?: "Unknown"),
-        "Android Version" to (Build.VERSION.RELEASE ?: "Unknown"),
-        "API Level" to Build.VERSION.SDK_INT.toString()
-    )
-}
-
-fun getDisplayInfo(context: Context): List<Pair<String, String>> {
-    val displayMetrics = context.resources.displayMetrics
-    return listOf(
-        "Resolution" to "${displayMetrics.widthPixels} x ${displayMetrics.heightPixels}",
-        "Density" to "${displayMetrics.densityDpi} dpi",
-        "Refresh Rate" to "${context.display?.refreshRate?.toInt() ?: "Unknown"} Hz"
-    )
-}
-
-@Composable
-fun getNetworkInfo(context: Context, refreshTrigger: Int): List<Pair<String, String>> {
-    val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-    val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-    
-    val wifiInfo = remember(refreshTrigger) {
-        wifiManager.connectionInfo
-    }
-    
-    val activeNetwork = remember(refreshTrigger) {
-        connectivityManager.activeNetwork
-    }
-    
-    val networkCapabilities = remember(refreshTrigger) {
-        connectivityManager.getNetworkCapabilities(activeNetwork)
+    fun clearCurrentPage() {
+        val updatedPages = _pages.value.toMutableList()
+        updatedPages[_currentPage.value] = mutableListOf()
+        _pages.value = updatedPages
     }
 
-    val wifiIpAddress = try {
-        Formatter.formatIpAddress(wifiInfo.ipAddress)
-    } catch (e: Exception) {
-        "Unavailable"
+    fun addNewPage() {
+        val updatedPages = _pages.value.toMutableList()
+        updatedPages.add(mutableListOf())
+        _pages.value = updatedPages
+        _currentPage.value = updatedPages.lastIndex
     }
-    val wifiMacAddress = getWifiMacAddress(context)
-    
-    val mobileIpAddress = if (networkCapabilities?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true) {
-        getMobileIpAddress()
-    } else {
-        "Not connected"
-    }
-    val mobileMacAddress = getMacAddress("rmnet0")
 
-    return listOf(
-        "WiFi IP" to wifiIpAddress,
-        "WiFi MAC" to wifiMacAddress,
-        "Mobile IP" to mobileIpAddress,
-        "Mobile MAC" to mobileMacAddress
-    )
-}
-
-fun getWifiMacAddress(context: Context): String {
-    val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-    var macAddress = wifiManager.connectionInfo.macAddress
-    
-    if (macAddress == null || macAddress == "02:00:00:00:00:00") {
-        try {
-            val interfaces = NetworkInterface.getNetworkInterfaces()
-            while (interfaces.hasMoreElements()) {
-                val networkInterface = interfaces.nextElement()
-                if (networkInterface.name.equals("wlan0", ignoreCase = true)) {
-                    val mac = networkInterface.hardwareAddress
-                    if (mac != null) {
-                        val stringBuilder = StringBuilder()
-                        for (b in mac) {
-                            stringBuilder.append(String.format("%02X:", b))
-                        }
-                        if (stringBuilder.isNotEmpty()) {
-                            stringBuilder.deleteCharAt(stringBuilder.length - 1)
-                        }
-                        macAddress = stringBuilder.toString()
-                        break
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
+    fun navigateToPage(pageIndex: Int) {
+        if (pageIndex in 0 until _pages.value.size) {
+            _currentPage.value = pageIndex
         }
     }
-    
-    return macAddress ?: "Unavailable"
 }
 
-fun getMacAddress(interfaceName: String): String {
-    try {
-        val interfaces = NetworkInterface.getNetworkInterfaces() ?: return "Unavailable"
-        while (interfaces.hasMoreElements()) {
-            val networkInterface = interfaces.nextElement()
-            if (networkInterface.name.equals(interfaceName, ignoreCase = true)) {
-                val macBytes = networkInterface.hardwareAddress ?: return "Unavailable"
-                return macBytes.joinToString(":") { "%02X".format(it) }
-            }
-        }
-    } catch (e: Exception) {
-        e.printStackTrace()
-    }
-    return "Unavailable"
+// DrawingTool.kt
+package com.example.whiteboardapp
+
+enum class DrawingTool {
+    Pen,
+    Brush,
+    Eraser
 }
 
-fun getMobileIpAddress(): String {
-    try {
-        val interfaces = NetworkInterface.getNetworkInterfaces() ?: return "Unavailable"
-        while (interfaces.hasMoreElements()) {
-            val networkInterface = interfaces.nextElement()
-            if (networkInterface.name.startsWith("rmnet")) {
-                val addresses = networkInterface.inetAddresses
-                while (addresses.hasMoreElements()) {
-                    val address = addresses.nextElement()
-                    if (!address.isLoopbackAddress && address.hostAddress.indexOf(':') < 0) {
-                        return address.hostAddress
-                    }
-                }
-            }
-        }
-    } catch (e: Exception) {
-        e.printStackTrace()
-    }
-    return "Unavailable"
-}
+// DrawingPathData.kt
+package com.example.whiteboardapp
 
-fun getStorageInfo(context: Context): List<Pair<String, String>> {
-    val totalSpace = context.filesDir.totalSpace / (1024 * 1024 * 1024)
-    val freeSpace = context.filesDir.freeSpace / (1024 * 1024 * 1024)
-    return listOf(
-        "Total Storage" to "$totalSpace GB",
-        "Free Storage" to "$freeSpace GB"
-    )
-}
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 
-fun getMemoryInfo(context: Context): List<Pair<String, String>> {
-    val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-    val memoryInfo = ActivityManager.MemoryInfo()
-    activityManager.getMemoryInfo(memoryInfo)
-    val totalMemory = memoryInfo.totalMem / (1024 * 1024)
-    val availableMemory = memoryInfo.availMem / (1024 * 1024)
-    return listOf(
-        "Total RAM" to "$totalMemory MB",
-        "Available RAM" to "$availableMemory MB"
-    )
-}
-
-fun getGpuInfo(): List<Pair<String, String>> {
-    return try {
-        listOf(
-            "GPU Vendor" to (android.opengl.GLES20.glGetString(android.opengl.GLES20.GL_VENDOR) ?: "Unknown"),
-            "GPU Renderer" to (android.opengl.GLES20.glGetString(android.opengl.GLES20.GL_RENDERER) ?: "Unknown")
-        )
-    } catch (e: Exception) {
-        listOf(
-            "GPU Vendor" to "Unavailable",
-            "GPU Renderer" to "Unavailable"
-        )
-    }
-}
-
-@Composable
-fun DeviceInfoTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = darkColorScheme(),
-        typography = Typography(),
-        content = content
-    )
-}
+data class DrawingPathData(
+    val path: Path,
+    val color: Color,
+    val width: Float,
+    val tool: DrawingTool
+)
