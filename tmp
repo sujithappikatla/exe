@@ -1,32 +1,130 @@
-// DrawingTool.kt
+// WhiteboardScreen.kt (updated)
 package com.example.whiteboardapp
 
-enum class DrawingTool {
-    Pen,
-    Brush,
-    Eraser,
-    Text
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+
+@Composable
+fun WhiteboardScreen(viewModel: WhiteboardViewModel) {
+    // ... (previous code remains the same)
+
+    var showTextInput by remember { mutableStateOf(false) }
+    var textPosition by remember { mutableStateOf(Offset.Zero) }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(canvasBackgroundColor)
+                .graphicsLayer(
+                    scaleX = scale,
+                    scaleY = scale,
+                    translationX = offset.x,
+                    translationY = offset.y
+                )
+                .pointerInput(currentTool, currentColor, currentWidth, eraserWidth) {
+                    detectTapGestures(
+                        onTap = { tapPosition ->
+                            if (currentTool == DrawingTool.Text) {
+                                textPosition = tapPosition
+                                showTextInput = true
+                            }
+                        }
+                    )
+                }
+                // ... (other gesture detectors remain the same)
+        ) {
+            pages[currentPage].forEach { pathData ->
+                when (pathData) {
+                    is DrawingPathData.StrokePath -> {
+                        drawPath(
+                            path = pathData.path,
+                            color = pathData.color,
+                            alpha = if (pathData.tool == DrawingTool.Brush) 0.3f else 1f,
+                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = pathData.width * scale)
+                        )
+                    }
+                    is DrawingPathData.TextElement -> {
+                        drawText(
+                            text = pathData.text,
+                            topLeft = pathData.position,
+                            style = TextStyle(
+                                color = pathData.color,
+                                fontSize = pathData.fontSize.sp
+                            )
+                        )
+                    }
+                }
+            }
+        }
+
+        if (showTextInput) {
+            AlertDialog(
+                onDismissRequest = { showTextInput = false },
+                title = { Text("Enter Text") },
+                text = {
+                    BasicTextField(
+                        value = viewModel.textInput.collectAsState().value,
+                        onValueChange = { viewModel.setTextInput(it) },
+                        textStyle = TextStyle(
+                            color = currentColor,
+                            fontSize = viewModel.fontSize.collectAsState().value.sp
+                        ),
+                        cursorBrush = SolidColor(currentColor)
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            viewModel.addTextToCurrentPage(viewModel.textInput.value, textPosition)
+                            showTextInput = false
+                            viewModel.setTextInput("")
+                        }
+                    ) {
+                        Text("Add Text")
+                    }
+                },
+                dismissButton = {
+                    Button(onClick = { showTextInput = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+
+        // ... (Toolbar and other UI elements remain the same)
+    }
+
+    // ... (Color picker, width picker, and other dialogs remain the same)
 }
 
-// DrawingPathData.kt
-package com.example.whiteboardapp
-
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-
-sealed class DrawingPathData {
-    data class StrokePath(
-        val path: Path,
-        val color: Color,
-        val width: Float,
-        val tool: DrawingTool
-    ) : DrawingPathData()
-
-    data class TextElement(
-        val text: String,
-        val position: Offset,
-        val color: Color,
-        val fontSize: Float
-    ) : DrawingPathData()
+@Composable
+fun ToolbarOverlay(
+    modifier: Modifier = Modifier,
+    viewModel: WhiteboardViewModel,
+    onColorPickerClick: () -> Unit,
+    onWidthPickerClick: () -> Unit,
+    onBackgroundColorClick: () -> Unit,
+    onExportClick: () -> Unit
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // ... (previous buttons remain the same)
+        ToolButton(
+            icon = WhiteboardIcons.Text,
+            onClick = { viewModel.setTool(DrawingTool.Text) }
+        )
+        // ... (other buttons remain the same)
+    }
 }
