@@ -1,130 +1,171 @@
-// WhiteboardScreen.kt (updated)
-package com.example.whiteboardapp
+// WhiteboardViewModel.kt (updated)
+package com.example.whiteboardapp.viewmodel
 
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.Color
+import androidx.lifecycle.ViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import com.example.whiteboardapp.model.DrawingTool
+import com.example.whiteboardapp.model.DrawingPathData
 
-@Composable
-fun WhiteboardScreen(viewModel: WhiteboardViewModel) {
-    // ... (previous code remains the same)
+class WhiteboardViewModel : ViewModel() {
+    private val _currentTool = MutableStateFlow<DrawingTool>(DrawingTool.Pen)
+    val currentTool = _currentTool.asStateFlow()
 
-    var showTextInput by remember { mutableStateOf(false) }
-    var textPosition by remember { mutableStateOf(Offset.Zero) }
+    private val _currentColor = MutableStateFlow(Color.Black)
+    val currentColor = _currentColor.asStateFlow()
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        Canvas(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(canvasBackgroundColor)
-                .graphicsLayer(
-                    scaleX = scale,
-                    scaleY = scale,
-                    translationX = offset.x,
-                    translationY = offset.y
-                )
-                .pointerInput(currentTool, currentColor, currentWidth, eraserWidth) {
-                    detectTapGestures(
-                        onTap = { tapPosition ->
-                            if (currentTool == DrawingTool.Text) {
-                                textPosition = tapPosition
-                                showTextInput = true
-                            }
-                        }
-                    )
-                }
-                // ... (other gesture detectors remain the same)
-        ) {
-            pages[currentPage].forEach { pathData ->
-                when (pathData) {
-                    is DrawingPathData.StrokePath -> {
-                        drawPath(
-                            path = pathData.path,
-                            color = pathData.color,
-                            alpha = if (pathData.tool == DrawingTool.Brush) 0.3f else 1f,
-                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = pathData.width * scale)
-                        )
-                    }
-                    is DrawingPathData.TextElement -> {
-                        drawText(
-                            text = pathData.text,
-                            topLeft = pathData.position,
-                            style = TextStyle(
-                                color = pathData.color,
-                                fontSize = pathData.fontSize.sp
-                            )
-                        )
-                    }
-                }
-            }
-        }
+    private val _currentWidth = MutableStateFlow(5f)
+    val currentWidth = _currentWidth.asStateFlow()
 
-        if (showTextInput) {
-            AlertDialog(
-                onDismissRequest = { showTextInput = false },
-                title = { Text("Enter Text") },
-                text = {
-                    BasicTextField(
-                        value = viewModel.textInput.collectAsState().value,
-                        onValueChange = { viewModel.setTextInput(it) },
-                        textStyle = TextStyle(
-                            color = currentColor,
-                            fontSize = viewModel.fontSize.collectAsState().value.sp
-                        ),
-                        cursorBrush = SolidColor(currentColor)
-                    )
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            viewModel.addTextToCurrentPage(viewModel.textInput.value, textPosition)
-                            showTextInput = false
-                            viewModel.setTextInput("")
-                        }
-                    ) {
-                        Text("Add Text")
-                    }
-                },
-                dismissButton = {
-                    Button(onClick = { showTextInput = false }) {
-                        Text("Cancel")
-                    }
-                }
-            )
-        }
+    private val _canvasBackgroundColor = MutableStateFlow(Color.White)
+    val canvasBackgroundColor = _canvasBackgroundColor.asStateFlow()
 
-        // ... (Toolbar and other UI elements remain the same)
+    private val _currentPage = MutableStateFlow(0)
+    val currentPage = _currentPage.asStateFlow()
+
+    private val _pages = MutableStateFlow(listOf(mutableListOf<DrawingPathData>()))
+    val pages = _pages.asStateFlow()
+
+    private val _scale = MutableStateFlow(1f)
+    val scale = _scale.asStateFlow()
+
+    private val _offset = MutableStateFlow(Offset.Zero)
+    val offset = _offset.asStateFlow()
+
+    private val _eraserWidth = MutableStateFlow(20f)
+    val eraserWidth = _eraserWidth.asStateFlow()
+
+    private val _fontSize = MutableStateFlow(24f)
+    val fontSize = _fontSize.asStateFlow()
+
+    private val _textInput = MutableStateFlow("")
+    val textInput = _textInput.asStateFlow()
+
+    private val _currentShape = MutableStateFlow<DrawingPathData.ShapeElement?>(null)
+    val currentShape = _currentShape.asStateFlow()
+
+    private val _undoStack = MutableStateFlow(listOf<List<DrawingPathData>>())
+    private val _redoStack = MutableStateFlow(listOf<List<DrawingPathData>>())
+
+    fun setTool(tool: DrawingTool) {
+        _currentTool.value = tool
     }
 
-    // ... (Color picker, width picker, and other dialogs remain the same)
-}
+    fun setColor(color: Color) {
+        _currentColor.value = color
+    }
 
-@Composable
-fun ToolbarOverlay(
-    modifier: Modifier = Modifier,
-    viewModel: WhiteboardViewModel,
-    onColorPickerClick: () -> Unit,
-    onWidthPickerClick: () -> Unit,
-    onBackgroundColorClick: () -> Unit,
-    onExportClick: () -> Unit
-) {
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        // ... (previous buttons remain the same)
-        ToolButton(
-            icon = WhiteboardIcons.Text,
-            onClick = { viewModel.setTool(DrawingTool.Text) }
+    fun setWidth(width: Float) {
+        _currentWidth.value = width
+    }
+
+    fun setCanvasBackgroundColor(color: Color) {
+        _canvasBackgroundColor.value = color
+    }
+
+    fun setEraserWidth(width: Float) {
+        _eraserWidth.value = width
+    }
+
+    fun setFontSize(size: Float) {
+        _fontSize.value = size
+    }
+
+    fun setTextInput(text: String) {
+        _textInput.value = text
+    }
+
+    fun addTextToCurrentPage(text: String, position: Offset) {
+        val textElement = DrawingPathData.TextElement(
+            text = text,
+            position = position,
+            color = _currentColor.value,
+            fontSize = _fontSize.value
         )
-        // ... (other buttons remain the same)
+        addPathToCurrentPage(textElement)
+    }
+
+    fun addPathToCurrentPage(pathData: DrawingPathData) {
+        val currentPagePaths = _pages.value[_currentPage.value].toMutableList()
+        currentPagePaths.add(pathData)
+        updatePageContent(currentPagePaths)
+        _redoStack.value = emptyList() // Clear redo stack when a new action is performed
+    }
+
+    fun undo() {
+        val currentPagePaths = _pages.value[_currentPage.value]
+        if (currentPagePaths.isNotEmpty()) {
+            _undoStack.value = _undoStack.value + listOf(currentPagePaths)
+            val updatedPaths = currentPagePaths.dropLast(1)
+            updatePageContent(updatedPaths)
+        }
+    }
+
+    fun redo() {
+        if (_redoStack.value.isNotEmpty()) {
+            val redoAction = _redoStack.value.last()
+            _redoStack.value = _redoStack.value.dropLast(1)
+            _undoStack.value = _undoStack.value + listOf(_pages.value[_currentPage.value])
+            updatePageContent(redoAction)
+        }
+    }
+
+    fun updateScale(newScale: Float) {
+        _scale.value = newScale.coerceIn(0.5f, 5f)
+    }
+
+    fun updateOffset(newOffset: Offset) {
+        _offset.value = newOffset
+    }
+
+    fun erase(path: androidx.compose.ui.graphics.Path) {
+        val currentPagePaths = _pages.value[_currentPage.value].toMutableList()
+        val erasedPaths = currentPagePaths.filterIsInstance<DrawingPathData.StrokePath>().filter { pathData ->
+            !pathData.path.op(path, androidx.compose.ui.graphics.Path.Op.INTERSECT).isEmpty
+        }
+        currentPagePaths.removeAll(erasedPaths)
+        updatePageContent(currentPagePaths)
+    }
+
+    fun startShape(startPoint: Offset) {
+        _currentShape.value = DrawingPathData.ShapeElement(
+            startPoint = startPoint,
+            endPoint = startPoint,
+            color = _currentColor.value,
+            width = _currentWidth.value,
+            tool = _currentTool.value
+        )
+    }
+
+    fun updateShape(endPoint: Offset) {
+        _currentShape.value = _currentShape.value?.copy(endPoint = endPoint)
+    }
+
+    fun finalizeShape() {
+        _currentShape.value?.let { shape ->
+            addPathToCurrentPage(shape)
+            _currentShape.value = null
+        }
+    }
+
+    fun addNewPage() {
+        val updatedPages = _pages.value.toMutableList()
+        updatedPages.add(mutableListOf())
+        _pages.value = updatedPages
+        _currentPage.value = updatedPages.lastIndex
+    }
+
+    fun navigateToPage(pageIndex: Int) {
+        if (pageIndex in 0 until _pages.value.size) {
+            _currentPage.value = pageIndex
+        }
+    }
+
+    private fun updatePageContent(newContent: List<DrawingPathData>) {
+        val updatedPages = _pages.value.toMutableList()
+        updatedPages[_currentPage.value] = newContent
+        _pages.value = updatedPages
     }
 }
