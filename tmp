@@ -1,34 +1,192 @@
-// WhiteboardViewModel.kt (updated)
+// WhiteboardScreen.kt (updated)
 package com.example.whiteboardapp
 
-import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
-import androidx.lifecycle.ViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.dp
 
-class WhiteboardViewModel : ViewModel() {
-    // ... (previous code remains the same)
+@Composable
+fun WhiteboardScreen(viewModel: WhiteboardViewModel) {
+    val currentTool by viewModel.currentTool.collectAsState()
+    val currentColor by viewModel.currentColor.collectAsState()
+    val currentWidth by viewModel.currentWidth.collectAsState()
+    val eraserWidth by viewModel.eraserWidth.collectAsState()
+    val canvasBackgroundColor by viewModel.canvasBackgroundColor.collectAsState()
+    val currentPage by viewModel.currentPage.collectAsState()
+    val pages by viewModel.pages.collectAsState()
 
-    private val _eraserWidth = MutableStateFlow(20f)
-    val eraserWidth = _eraserWidth.asStateFlow()
+    var path by remember { mutableStateOf(Path()) }
+    var lastTouchPoint by remember { mutableStateOf<Offset?>(null) }
 
-    fun setEraserWidth(width: Float) {
-        _eraserWidth.value = width
-    }
+    var showColorPicker by remember { mutableStateOf(false) }
+    var showWidthPicker by remember { mutableStateOf(false) }
+    var showBackgroundColorPicker by remember { mutableStateOf(false) }
 
-    fun erase(path: Path) {
-        val currentPagePaths = _pages.value[_currentPage.value].toMutableList()
-        val erasedPaths = currentPagePaths.filter { pathData ->
-            !pathData.path.op(path, Path.Op.INTERSECT).isEmpty
+    Box(modifier = Modifier.fillMaxSize()) {
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(canvasBackgroundColor)
+                .pointerInput(currentTool, currentColor, currentWidth, eraserWidth) {
+                    detectDragGestures(
+                        onDragStart = { touchPoint ->
+                            path = Path().apply { moveTo(touchPoint.x, touchPoint.y) }
+                            lastTouchPoint = touchPoint
+                        },
+                        onDrag = { change, _ ->
+                            val newPoint = change.position
+                            lastTouchPoint?.let { lastPoint ->
+                                path.quadraticBezierTo(
+                                    lastPoint.x,
+                                    lastPoint.y,
+                                    (newPoint.x + lastPoint.x) / 2,
+                                    (newPoint.y + lastPoint.y) / 2
+                                )
+                            }
+                            lastTouchPoint = newPoint
+
+                            when (currentTool) {
+                                DrawingTool.Pen, DrawingTool.Brush -> {
+                                    viewModel.addPathToCurrentPage(
+                                        DrawingPathData(
+                                            path = path,
+                                            color = currentColor,
+                                            width = currentWidth,
+                                            tool = currentTool
+                                        )
+                                    )
+                                }
+                                DrawingTool.Eraser -> {
+                                    viewModel.erase(path)
+                                }
+                            }
+                        },
+                        onDragEnd = {
+                            lastTouchPoint = null
+                            path = Path()
+                        }
+                    )
+                }
+        ) {
+            pages[currentPage].forEach { pathData ->
+                drawPath(
+                    path = pathData.path,
+                    color = pathData.color,
+                    alpha = if (pathData.tool == DrawingTool.Brush) 0.3f else 1f,
+                    style = Stroke(width = pathData.width)
+                )
+            }
         }
-        currentPagePaths.removeAll(erasedPaths)
-        val updatedPages = _pages.value.toMutableList()
-        updatedPages[_currentPage.value] = currentPagePaths
-        _pages.value = updatedPages
+
+        Column(
+            modifier = Modifier.align(Alignment.BottomCenter),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            PageNavigation(
+                currentPage = currentPage,
+                totalPages = pages.size,
+                onPreviousPage = { viewModel.navigateToPage(currentPage - 1) },
+                onNextPage = { viewModel.navigateToPage(currentPage + 1) },
+                onAddNewPage = { viewModel.addNewPage() }
+            )
+
+            ToolbarOverlay(
+                modifier = Modifier.padding(bottom = 16.dp),
+                viewModel = viewModel,
+                onColorPickerClick = { showColorPicker = true },
+                onWidthPickerClick = { showWidthPicker = true },
+                onBackgroundColorClick = { showBackgroundColorPicker = true }
+            )
+        }
     }
 
-    fun setCanvasBackgroundColor(color: Color) {
-        _canvasBackgroundColor.value = color
+    if (showColorPicker) {
+        ColorPicker(
+            onColorSelected = { color ->
+                viewModel.setColor(color)
+                showColorPicker = false
+            },
+            onDismiss = { showColorPicker = false }
+        )
+    }
+
+    if (showWidthPicker) {
+        WidthPicker(
+            initialWidth = if (currentTool == DrawingTool.Eraser) eraserWidth else currentWidth,
+            onWidthSelected = { width ->
+                if (currentTool == DrawingTool.Eraser) {
+                    viewModel.setEraserWidth(width)
+                } else {
+                    viewModel.setWidth(width)
+                }
+                showWidthPicker = false
+            },
+            onDismiss = { showWidthPicker = false }
+        )
+    }
+
+    if (showBackgroundColorPicker) {
+        ColorPicker(
+            onColorSelected = { color ->
+                viewModel.setCanvasBackgroundColor(color)
+                showBackgroundColorPicker = false
+            },
+            onDismiss = { showBackgroundColorPicker = false }
+        )
+    }
+}
+
+@Composable
+fun ToolbarOverlay(
+    modifier: Modifier = Modifier,
+    viewModel: WhiteboardViewModel,
+    onColorPickerClick: () -> Unit,
+    onWidthPickerClick: () -> Unit,
+    onBackgroundColorClick: () -> Unit
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        ToolButton(
+            icon = WhiteboardIcons.Pen,
+            onClick = { viewModel.setTool(DrawingTool.Pen) }
+        )
+        ToolButton(
+            icon = WhiteboardIcons.Brush,
+            onClick = { viewModel.setTool(DrawingTool.Brush) }
+        )
+        ToolButton(
+            icon = WhiteboardIcons.Eraser,
+            onClick = { viewModel.setTool(DrawingTool.Eraser) }
+        )
+        ToolButton(
+            icon = WhiteboardIcons.Undo,
+            onClick = { viewModel.undo() }
+        )
+        ToolButton(
+            icon = WhiteboardIcons.Color,
+            onClick = onColorPickerClick
+        )
+        ToolButton(
+            icon = WhiteboardIcons.Width,
+            onClick = onWidthPickerClick
+        )
+        ToolButton(
+            icon = WhiteboardIcons.BackgroundColor,
+            onClick = onBackgroundColorClick
+        )
     }
 }
