@@ -1,67 +1,79 @@
-// WhiteboardViewModel.kt (updated)
+// WhiteboardScreen.kt (updated)
 package com.example.whiteboardapp
 
-import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.net.Uri
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.asAndroidPath
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
-import java.io.File
-import java.io.FileOutputStream
+import android.content.Intent
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 
-class WhiteboardViewModel : ViewModel() {
+@Composable
+fun WhiteboardScreen(viewModel: WhiteboardViewModel) {
+    val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+
     // ... (previous code remains the same)
 
-    fun exportDrawing(context: Context, onComplete: (Uri?) -> Unit) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val bitmap = Bitmap.createBitmap(1080, 1920, Bitmap.Config.ARGB_8888)
-            val canvas = Canvas(bitmap)
+    Box(modifier = Modifier.fillMaxSize()) {
+        // ... (previous code remains the same)
 
-            // Set background color
-            canvas.drawColor(canvasBackgroundColor.value.toArgb())
+        Column(
+            modifier = Modifier.align(Alignment.BottomCenter),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            PageNavigation(
+                currentPage = currentPage,
+                totalPages = pages.size,
+                onPreviousPage = { viewModel.navigateToPage(currentPage - 1) },
+                onNextPage = { viewModel.navigateToPage(currentPage + 1) },
+                onAddNewPage = { viewModel.addNewPage() }
+            )
 
-            // Draw all paths
-            val paint = android.graphics.Paint().apply {
-                isAntiAlias = true
-                isDither = true
-            }
-
-            pages.value[currentPage.value].forEach { pathData ->
-                paint.color = pathData.color.toArgb()
-                paint.strokeWidth = pathData.width
-                paint.style = when (pathData.tool) {
-                    DrawingTool.Pen -> android.graphics.Paint.Style.STROKE
-                    DrawingTool.Brush -> {
-                        paint.alpha = 77 // ~30% opacity
-                        android.graphics.Paint.Style.STROKE
+            ToolbarOverlay(
+                modifier = Modifier.padding(bottom = 16.dp),
+                viewModel = viewModel,
+                onColorPickerClick = { showColorPicker = true },
+                onWidthPickerClick = { showWidthPicker = true },
+                onBackgroundColorClick = { showBackgroundColorPicker = true },
+                onExportClick = {
+                    viewModel.exportDrawing(context) { uri ->
+                        if (uri != null) {
+                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = "image/png"
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(Intent.createChooser(shareIntent, "Share drawing"))
+                        } else {
+                            // Show error message
+                            snackbarHostState.showSnackbar("Failed to export drawing")
+                        }
                     }
-                    DrawingTool.Eraser -> android.graphics.Paint.Style.STROKE // Eraser not needed here
                 }
-                canvas.drawPath(pathData.path.asAndroidPath(), paint)
-            }
-
-            // Save bitmap to file
-            val fileName = "whiteboard_export_${System.currentTimeMillis()}.png"
-            val file = File(context.externalCacheDir, fileName)
-            try {
-                FileOutputStream(file).use { out ->
-                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-                }
-                onComplete(Uri.fromFile(file))
-            } catch (e: Exception) {
-                e.printStackTrace()
-                onComplete(null)
-            }
+            )
         }
     }
 
     // ... (rest of the code remains the same)
+}
+
+@Composable
+fun ToolbarOverlay(
+    modifier: Modifier = Modifier,
+    viewModel: WhiteboardViewModel,
+    onColorPickerClick: () -> Unit,
+    onWidthPickerClick: () -> Unit,
+    onBackgroundColorClick: () -> Unit,
+    onExportClick: () -> Unit
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // ... (previous buttons remain the same)
+        ToolButton(
+            icon = WhiteboardIcons.Export,
+            onClick = onExportClick
+        )
+    }
 }
