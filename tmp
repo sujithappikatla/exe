@@ -1,29 +1,104 @@
-// WhiteboardViewModel.kt (updated)
+// WhiteboardScreen.kt (updated)
 package com.example.whiteboardapp
 
+import androidx.compose.foundation.gestures.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.lifecycle.ViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 
-class WhiteboardViewModel : ViewModel() {
-    // ... (previous code remains the same)
+@Composable
+fun WhiteboardScreen(viewModel: WhiteboardViewModel) {
+    val currentTool by viewModel.currentTool.collectAsState()
+    val currentColor by viewModel.currentColor.collectAsState()
+    val currentWidth by viewModel.currentWidth.collectAsState()
+    val eraserWidth by viewModel.eraserWidth.collectAsState()
+    val canvasBackgroundColor by viewModel.canvasBackgroundColor.collectAsState()
+    val currentPage by viewModel.currentPage.collectAsState()
+    val pages by viewModel.pages.collectAsState()
+    val scale by viewModel.scale.collectAsState()
+    val offset by viewModel.offset.collectAsState()
 
-    private val _scale = MutableStateFlow(1f)
-    val scale = _scale.asStateFlow()
+    var path by remember { mutableStateOf(Path()) }
+    var lastTouchPoint by remember { mutableStateOf<Offset?>(null) }
 
-    private val _offset = MutableStateFlow(Offset.Zero)
-    val offset = _offset.asStateFlow()
+    val density = LocalDensity.current
 
-    fun updateScale(newScale: Float) {
-        _scale.value = newScale.coerceIn(0.5f, 5f)
+    Box(modifier = Modifier.fillMaxSize()) {
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(canvasBackgroundColor)
+                .graphicsLayer(
+                    scaleX = scale,
+                    scaleY = scale,
+                    translationX = offset.x,
+                    translationY = offset.y
+                )
+                .pointerInput(currentTool, currentColor, currentWidth, eraserWidth) {
+                    detectTransformGestures { centroid, pan, zoom, rotation ->
+                        viewModel.updateScale(scale * zoom)
+                        viewModel.updateOffset(offset + pan)
+                    }
+                }
+                .pointerInput(currentTool, currentColor, currentWidth, eraserWidth) {
+                    detectDragGestures(
+                        onDragStart = { touchPoint ->
+                            path = Path().apply { moveTo(touchPoint.x, touchPoint.y) }
+                            lastTouchPoint = touchPoint
+                        },
+                        onDrag = { change, _ ->
+                            val newPoint = change.position
+                            lastTouchPoint?.let { lastPoint ->
+                                path.quadraticBezierTo(
+                                    lastPoint.x,
+                                    lastPoint.y,
+                                    (newPoint.x + lastPoint.x) / 2,
+                                    (newPoint.y + lastPoint.y) / 2
+                                )
+                            }
+                            lastTouchPoint = newPoint
+
+                            when (currentTool) {
+                                DrawingTool.Pen, DrawingTool.Brush -> {
+                                    viewModel.addPathToCurrentPage(
+                                        DrawingPathData(
+                                            path = path,
+                                            color = currentColor,
+                                            width = currentWidth / scale, // Adjust width based on scale
+                                            tool = currentTool
+                                        )
+                                    )
+                                }
+                                DrawingTool.Eraser -> {
+                                    viewModel.erase(path)
+                                }
+                            }
+                        },
+                        onDragEnd = {
+                            lastTouchPoint = null
+                            path = Path()
+                        }
+                    )
+                }
+        ) {
+            pages[currentPage].forEach { pathData ->
+                drawPath(
+                    path = pathData.path,
+                    color = pathData.color,
+                    alpha = if (pathData.tool == DrawingTool.Brush) 0.3f else 1f,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = pathData.width * scale)
+                )
+            }
+        }
+
+        // ... (Toolbar and other UI elements remain the same)
     }
 
-    fun updateOffset(newOffset: Offset) {
-        _offset.value = newOffset
-    }
-
-    // ... (rest of the code remains the same)
+    // ... (Color picker, width picker, and other dialogs remain the same)
 }
