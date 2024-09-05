@@ -1,104 +1,34 @@
-// WhiteboardScreen.kt (updated)
+// WhiteboardViewModel.kt (updated)
 package com.example.whiteboardapp
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.lifecycle.ViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
-@Composable
-fun WhiteboardScreen(viewModel: WhiteboardViewModel) {
-    val currentTool by viewModel.currentTool.collectAsState()
-    val currentColor by viewModel.currentColor.collectAsState()
-    val currentWidth by viewModel.currentWidth.collectAsState()
-    val canvasBackgroundColor by viewModel.canvasBackgroundColor.collectAsState()
-    val currentPage by viewModel.currentPage.collectAsState()
-    val pages by viewModel.pages.collectAsState()
+class WhiteboardViewModel : ViewModel() {
+    // ... (previous code remains the same)
 
-    var showColorPicker by remember { mutableStateOf(false) }
-    var showWidthPicker by remember { mutableStateOf(false) }
+    private val _eraserWidth = MutableStateFlow(20f)
+    val eraserWidth = _eraserWidth.asStateFlow()
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        // Canvas implementation (same as before)
+    fun setEraserWidth(width: Float) {
+        _eraserWidth.value = width
+    }
 
-        Column(
-            modifier = Modifier.align(Alignment.BottomCenter),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            PageNavigation(
-                currentPage = currentPage,
-                totalPages = pages.size,
-                onPreviousPage = { viewModel.navigateToPage(currentPage - 1) },
-                onNextPage = { viewModel.navigateToPage(currentPage + 1) },
-                onAddNewPage = { viewModel.addNewPage() }
-            )
-
-            ToolbarOverlay(
-                modifier = Modifier.padding(bottom = 16.dp),
-                viewModel = viewModel,
-                onColorPickerClick = { showColorPicker = true },
-                onWidthPickerClick = { showWidthPicker = true }
-            )
+    fun erase(path: Path) {
+        val currentPagePaths = _pages.value[_currentPage.value].toMutableList()
+        val erasedPaths = currentPagePaths.filter { pathData ->
+            !pathData.path.op(path, Path.Op.INTERSECT).isEmpty
         }
+        currentPagePaths.removeAll(erasedPaths)
+        val updatedPages = _pages.value.toMutableList()
+        updatedPages[_currentPage.value] = currentPagePaths
+        _pages.value = updatedPages
     }
 
-    if (showColorPicker) {
-        ColorPicker(
-            onColorSelected = { color ->
-                viewModel.setColor(color)
-                showColorPicker = false
-            },
-            onDismiss = { showColorPicker = false }
-        )
-    }
-
-    if (showWidthPicker) {
-        WidthPicker(
-            initialWidth = currentWidth,
-            onWidthSelected = { width ->
-                viewModel.setWidth(width)
-                showWidthPicker = false
-            },
-            onDismiss = { showWidthPicker = false }
-        )
-    }
-}
-
-@Composable
-fun ToolbarOverlay(
-    modifier: Modifier = Modifier,
-    viewModel: WhiteboardViewModel,
-    onColorPickerClick: () -> Unit,
-    onWidthPickerClick: () -> Unit
-) {
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        ToolButton(
-            icon = WhiteboardIcons.Pen,
-            onClick = { viewModel.setTool(DrawingTool.Pen) }
-        )
-        ToolButton(
-            icon = WhiteboardIcons.Brush,
-            onClick = { viewModel.setTool(DrawingTool.Brush) }
-        )
-        ToolButton(
-            icon = WhiteboardIcons.Eraser,
-            onClick = { viewModel.setTool(DrawingTool.Eraser) }
-        )
-        ToolButton(
-            icon = WhiteboardIcons.Undo,
-            onClick = { viewModel.undo() }
-        )
-        ToolButton(
-            icon = WhiteboardIcons.Color,
-            onClick = onColorPickerClick
-        )
-        ToolButton(
-            icon = WhiteboardIcons.Width,
-            onClick = onWidthPickerClick
-        )
+    fun setCanvasBackgroundColor(color: Color) {
+        _canvasBackgroundColor.value = color
     }
 }
