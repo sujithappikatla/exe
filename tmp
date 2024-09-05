@@ -1,79 +1,29 @@
-// WhiteboardScreen.kt (updated)
+// WhiteboardViewModel.kt (updated)
 package com.example.whiteboardapp
 
-import android.content.Intent
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.runtime.*
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.lifecycle.ViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
-@Composable
-fun WhiteboardScreen(viewModel: WhiteboardViewModel) {
-    val context = LocalContext.current
-    val snackbarHostState = remember { SnackbarHostState() }
-
+class WhiteboardViewModel : ViewModel() {
     // ... (previous code remains the same)
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        // ... (previous code remains the same)
+    private val _scale = MutableStateFlow(1f)
+    val scale = _scale.asStateFlow()
 
-        Column(
-            modifier = Modifier.align(Alignment.BottomCenter),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            PageNavigation(
-                currentPage = currentPage,
-                totalPages = pages.size,
-                onPreviousPage = { viewModel.navigateToPage(currentPage - 1) },
-                onNextPage = { viewModel.navigateToPage(currentPage + 1) },
-                onAddNewPage = { viewModel.addNewPage() }
-            )
+    private val _offset = MutableStateFlow(Offset.Zero)
+    val offset = _offset.asStateFlow()
 
-            ToolbarOverlay(
-                modifier = Modifier.padding(bottom = 16.dp),
-                viewModel = viewModel,
-                onColorPickerClick = { showColorPicker = true },
-                onWidthPickerClick = { showWidthPicker = true },
-                onBackgroundColorClick = { showBackgroundColorPicker = true },
-                onExportClick = {
-                    viewModel.exportDrawing(context) { uri ->
-                        if (uri != null) {
-                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                type = "image/png"
-                                putExtra(Intent.EXTRA_STREAM, uri)
-                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            }
-                            context.startActivity(Intent.createChooser(shareIntent, "Share drawing"))
-                        } else {
-                            // Show error message
-                            snackbarHostState.showSnackbar("Failed to export drawing")
-                        }
-                    }
-                }
-            )
-        }
+    fun updateScale(newScale: Float) {
+        _scale.value = newScale.coerceIn(0.5f, 5f)
+    }
+
+    fun updateOffset(newOffset: Offset) {
+        _offset.value = newOffset
     }
 
     // ... (rest of the code remains the same)
-}
-
-@Composable
-fun ToolbarOverlay(
-    modifier: Modifier = Modifier,
-    viewModel: WhiteboardViewModel,
-    onColorPickerClick: () -> Unit,
-    onWidthPickerClick: () -> Unit,
-    onBackgroundColorClick: () -> Unit,
-    onExportClick: () -> Unit
-) {
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        // ... (previous buttons remain the same)
-        ToolButton(
-            icon = WhiteboardIcons.Export,
-            onClick = onExportClick
-        )
-    }
 }
