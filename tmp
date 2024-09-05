@@ -1,48 +1,84 @@
-// WhiteboardViewModel.kt (updated)
+// WhiteboardScreen.kt (updated)
 package com.example.whiteboardapp
 
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.lifecycle.ViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
 
-class WhiteboardViewModel : ViewModel() {
+@Composable
+fun WhiteboardScreen(viewModel: WhiteboardViewModel) {
     // ... (previous code remains the same)
 
-    private val _undoStack = MutableStateFlow(listOf<List<DrawingPathData>>())
-    private val _redoStack = MutableStateFlow(listOf<List<DrawingPathData>>())
+    Box(modifier = Modifier.fillMaxSize()) {
+        // ... (previous code remains the same)
 
-    fun addPathToCurrentPage(path: DrawingPathData) {
-        val currentPagePaths = _pages.value[_currentPage.value].toMutableList()
-        currentPagePaths.add(path)
-        updatePageContent(currentPagePaths)
-        _redoStack.value = emptyList() // Clear redo stack when a new action is performed
-    }
+        Column(
+            modifier = Modifier.align(Alignment.BottomCenter),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            PageNavigation(
+                currentPage = currentPage,
+                totalPages = pages.size,
+                onPreviousPage = { viewModel.navigateToPage(currentPage - 1) },
+                onNextPage = { viewModel.navigateToPage(currentPage + 1) },
+                onAddNewPage = { viewModel.addNewPage() }
+            )
 
-    fun undo() {
-        val currentPagePaths = _pages.value[_currentPage.value]
-        if (currentPagePaths.isNotEmpty()) {
-            _undoStack.value = _undoStack.value + listOf(currentPagePaths)
-            val updatedPaths = currentPagePaths.dropLast(1)
-            updatePageContent(updatedPaths)
+            ToolbarOverlay(
+                modifier = Modifier.padding(bottom = 16.dp),
+                viewModel = viewModel,
+                onColorPickerClick = { showColorPicker = true },
+                onWidthPickerClick = { showWidthPicker = true },
+                onBackgroundColorClick = { showBackgroundColorPicker = true }
+            )
         }
-    }
-
-    fun redo() {
-        if (_redoStack.value.isNotEmpty()) {
-            val redoAction = _redoStack.value.last()
-            _redoStack.value = _redoStack.value.dropLast(1)
-            _undoStack.value = _undoStack.value + listOf(_pages.value[_currentPage.value])
-            updatePageContent(redoAction)
-        }
-    }
-
-    private fun updatePageContent(newContent: List<DrawingPathData>) {
-        val updatedPages = _pages.value.toMutableList()
-        updatedPages[_currentPage.value] = newContent
-        _pages.value = updatedPages
     }
 
     // ... (rest of the code remains the same)
+}
+
+@Composable
+fun ToolbarOverlay(
+    modifier: Modifier = Modifier,
+    viewModel: WhiteboardViewModel,
+    onColorPickerClick: () -> Unit,
+    onWidthPickerClick: () -> Unit,
+    onBackgroundColorClick: () -> Unit
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        ToolButton(
+            icon = WhiteboardIcons.Pen,
+            onClick = { viewModel.setTool(DrawingTool.Pen) }
+        )
+        ToolButton(
+            icon = WhiteboardIcons.Brush,
+            onClick = { viewModel.setTool(DrawingTool.Brush) }
+        )
+        ToolButton(
+            icon = WhiteboardIcons.Eraser,
+            onClick = { viewModel.setTool(DrawingTool.Eraser) }
+        )
+        ToolButton(
+            icon = WhiteboardIcons.Undo,
+            onClick = { viewModel.undo() }
+        )
+        ToolButton(
+            icon = WhiteboardIcons.Redo,
+            onClick = { viewModel.redo() }
+        )
+        ToolButton(
+            icon = WhiteboardIcons.Color,
+            onClick = onColorPickerClick
+        )
+        ToolButton(
+            icon = WhiteboardIcons.Width,
+            onClick = onWidthPickerClick
+        )
+        ToolButton(
+            icon = WhiteboardIcons.BackgroundColor,
+            onClick = onBackgroundColorClick
+        )
+    }
 }
