@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional
 import os
 import pickle
 import numpy as np
@@ -8,14 +8,13 @@ import regex as re
 
 from langchain_core.documents import Document
 from langchain_core.retrievers import BaseRetriever
+from langchain_core.pydantic_v1 import Field, PrivateAttr  # <-- important
 from langchain_community.embeddings import OllamaEmbeddings
 from langchain_community.vectorstores import FAISS
 from rank_bm25 import BM25Okapi
 
-
-# ------------ Tokenizer / helpers ------------
+# ---------- helpers ----------
 _word_re = re.compile(r"\p{L}+\p{M}*|\p{N}+", re.UNICODE)
-
 def _tok(text: str) -> List[str]:
     return [t.lower() for t in _word_re.findall(text or "")]
 
@@ -27,95 +26,63 @@ def _minmax(x: np.ndarray) -> np.ndarray:
         return np.zeros_like(x)
     return (x - mn) / (mx - mn)
 
-
 @dataclass
 class _BM25Pack:
     bm25: BM25Okapi
     tokenized: List[List[str]]
     ids: List[str]
 
-
-# ------------ Main retriever ------------
 class HybridLocalRetriever(BaseRetriever):
-    """
-    LCEL-compatible hybrid retriever (BM25 + Ollama embeddings via FAISS).
+    # --------- Pydantic FIELDS (must be declared) ---------
+    embedding_model: str = Field(default="nomic-embed-text")
+    embed_kwargs: Dict[str, Any] = Field(default_factory=dict)
+    # default search knobs; override per-call via with_search_kwargs(...)
+    search_kwargs: Dict[str, Any] = Field(
+        default_factory=lambda: dict(k=5, alpha=0.5, sparse_k=None, dense_k=None)
+    )
 
-    - Acts like other LangChain retrievers.
-    - Configure defaults at init.
-    - Override per-chain via .with_search_kwargs({...}) for k/alpha/sparse_k/dense_k.
-    - Deduplicates by doc id, returns List[Document].
+    # --------- Private attrs (not validated/serialized by Pydantic) ---------
+    _embeddings: OllamaEmbeddings = PrivateAttr(default=None)
+    _docs: List[Document] = PrivateAttr(default_factory=list)
+    _ids: List[str] = PrivateAttr(default_factory=list)
+    _bm25_pack: Optional[_BM25Pack] = PrivateAttr(default=None)
+    _faiss: Optional[FAISS] = PrivateAttr(default=None)
 
-    Persist:
-        save_local(dirpath)
-        HybridLocalRetriever.load_local(dirpath, embedding_model=..., embed_kwargs=...)
-    """
+    def __init__(self, **data):
+        super().__init__(**data)  # let Pydantic build the model
+        # Build the runtime-only embedding client
+        self._embeddings = OllamaEmbeddings(model=self.embedding_model, **(self.embed_kwargs or {}))
 
-    def __init__(
-        self,
-        *,
-        embedding_model: str = "nomic-embed-text",
-        embed_kwargs: Optional[Dict[str, Any]] = None,
-        # Defaults (can be overridden with .with_search_kwargs)
-        k: int = 5,
-        alpha: float = 0.5,        # 0 -> only BM25, 1 -> only dense
-        sparse_k: Optional[int] = None,  # candidate pool from BM25 (defaults to 10*k)
-        dense_k: Optional[int] = None,   # candidate pool from FAISS (defaults to 10*k)
-    ):
-        super().__init__()
-        self.embedding_model = embedding_model
-        self.embed_kwargs = embed_kwargs or {}
-        self.embeddings = OllamaEmbeddings(model=self.embedding_model, **self.embed_kwargs)
-
-        self._docs: List[Document] = []
-        self._ids: List[str] = []
-
-        self._bm25_pack: Optional[_BM25Pack] = None
-        self._faiss: Optional[FAISS] = None
-
-        # default search knobs
-        self.search_kwargs: Dict[str, Any] = dict(k=k, alpha=alpha, sparse_k=sparse_k, dense_k=dense_k)
-
-    # ----- Builder-style ergonomics (like vectorstore.as_retriever) -----
+    # ---------- ergonomics ----------
     def with_search_kwargs(self, *, search_kwargs: Dict[str, Any]) -> "HybridLocalRetriever":
-        """Return a shallow-copied retriever with overridden search kwargs (LCEL-friendly)."""
+        """Return a copy with updated search kwargs (LCEL-friendly)."""
+        # Make a new instance with same public fields
         r = HybridLocalRetriever(
             embedding_model=self.embedding_model,
             embed_kwargs=self.embed_kwargs,
-            k=self.search_kwargs.get("k", 5),
-            alpha=self.search_kwargs.get("alpha", 0.5),
-            sparse_k=self.search_kwargs.get("sparse_k"),
-            dense_k=self.search_kwargs.get("dense_k"),
+            search_kwargs={**self.search_kwargs, **(search_kwargs or {})},
         )
-        # carry indexes
+        # copy runtime state
         r._docs = self._docs
         r._ids = self._ids
         r._bm25_pack = self._bm25_pack
         r._faiss = self._faiss
-        # apply overrides
-        r.search_kwargs.update(search_kwargs or {})
         return r
 
-    # ----- Ingestion / build -----
+    # ---------- ingestion/build ----------
     def add_documents(self, docs: List[Document], *, id_key: str = "_doc_id") -> None:
-        """
-        Append LangChain Documents. If metadata has `id_key`, use it as stable id; else auto-generate.
-        """
         base = len(self._docs)
         for i, d in enumerate(docs):
             self._docs.append(d)
-            doc_id = str(d.metadata.get(id_key, base + i))
-            self._ids.append(doc_id)
+            self._ids.append(str(d.metadata.get(id_key, base + i)))
 
     def build(self) -> None:
-        """Build BM25 + FAISS."""
         if not self._docs:
             raise ValueError("No documents added.")
-
         # BM25
         tokenized = [_tok(d.page_content) for d in self._docs]
         bm25 = BM25Okapi(tokenized)
         self._bm25_pack = _BM25Pack(bm25=bm25, tokenized=tokenized, ids=list(self._ids))
-
         # FAISS (store doc id in metadata for alignment)
         texts = [d.page_content for d in self._docs]
         metas = []
@@ -123,25 +90,18 @@ class HybridLocalRetriever(BaseRetriever):
             md = (d.metadata or {}).copy()
             md["_doc_id"] = self._ids[i]
             metas.append(md)
-        self._faiss = FAISS.from_texts(texts=texts, embedding=self.embeddings, metadatas=metas)
+        self._faiss = FAISS.from_texts(texts=texts, embedding=self._embeddings, metadatas=metas)
 
-    # ----- Persistence -----
+    # ---------- persistence ----------
     def save_local(self, path: str) -> None:
         os.makedirs(path, exist_ok=True)
         if self._bm25_pack is None or self._faiss is None:
             raise ValueError("Call build() before save_local().")
-
         with open(os.path.join(path, "docs.pkl"), "wb") as f:
             pickle.dump({"docs": self._docs, "ids": self._ids}, f)
-
         with open(os.path.join(path, "bm25.pkl"), "wb") as f:
-            pickle.dump(
-                {"ids": self._bm25_pack.ids, "tokenized": self._bm25_pack.tokenized},
-                f,
-            )
-
+            pickle.dump({"ids": self._bm25_pack.ids, "tokenized": self._bm25_pack.tokenized}, f)
         self._faiss.save_local(os.path.join(path, "faiss_index"))
-
         with open(os.path.join(path, "cfg.pkl"), "wb") as f:
             pickle.dump(
                 {
@@ -162,79 +122,58 @@ class HybridLocalRetriever(BaseRetriever):
     ) -> "HybridLocalRetriever":
         with open(os.path.join(path, "cfg.pkl"), "rb") as f:
             cfg = pickle.load(f)
-
         embedding_model = embedding_model or cfg["embedding_model"]
         embed_kwargs = embed_kwargs or cfg.get("embed_kwargs") or {}
         search_kwargs = cfg.get("search_kwargs", {})
-
         inst = cls(
             embedding_model=embedding_model,
             embed_kwargs=embed_kwargs,
-            k=search_kwargs.get("k", 5),
-            alpha=search_kwargs.get("alpha", 0.5),
-            sparse_k=search_kwargs.get("sparse_k"),
-            dense_k=search_kwargs.get("dense_k"),
+            search_kwargs=search_kwargs,
         )
-
         with open(os.path.join(path, "docs.pkl"), "rb") as f:
             dd = pickle.load(f)
             inst._docs = dd["docs"]
             inst._ids = dd["ids"]
-
         with open(os.path.join(path, "bm25.pkl"), "rb") as f:
             bm = pickle.load(f)
             bm25 = BM25Okapi(bm["tokenized"])
             inst._bm25_pack = _BM25Pack(bm25=bm25, tokenized=bm["tokenized"], ids=bm["ids"])
-
         inst._faiss = FAISS.load_local(
             os.path.join(path, "faiss_index"),
-            embeddings=inst.embeddings,
+            embeddings=inst._embeddings,
             allow_dangerous_deserialization=True,
         )
         return inst
 
-    # ----- Core retrieval (LCEL calls this) -----
-    def _get_relevant_documents(
-        self,
-        query: str,
-        *,
-        run_manager=None,  # satisfies BaseRetriever signature
-    ) -> List[Document]:
-        """
-        Uses self.search_kwargs:
-          - k: final results to return
-          - alpha: blend weight (0..1)
-          - sparse_k: BM25 candidate pool (default 10*k)
-          - dense_k: FAISS candidate pool (default 10*k)
-        """
+    # ---------- core retrieval ----------
+    def _get_relevant_documents(self, query: str, *, run_manager=None) -> List[Document]:
         if self._bm25_pack is None or self._faiss is None:
             raise ValueError("Index not built or loaded.")
-
         k = int(self.search_kwargs.get("k", 5))
         alpha = float(self.search_kwargs.get("alpha", 0.5))
         sparse_k = int(self.search_kwargs.get("sparse_k") or max(k * 10, 20))
         dense_k = int(self.search_kwargs.get("dense_k") or max(k * 10, 20))
 
-        # --- BM25 sparse
+        # sparse
         qtok = _tok(query)
-        bm_raw = self._bm25_pack.bm25.get_scores(qtok)  # ndarray len=N
+        bm_raw = self._bm25_pack.bm25.get_scores(qtok)
         bm_top_idx = np.argsort(-bm_raw)[:sparse_k]
         bm_ids = [self._ids[i] for i in bm_top_idx]
 
-        # --- Dense (FAISS)
+        # dense
         faiss_hits = self._faiss.similarity_search_with_score(query, k=dense_k)
-        # Convert FAISS distance to similarity in (0,1]
         dense_scores: Dict[str, float] = {}
         for doc, dist in faiss_hits:
-            sim = 1.0 / (1.0 + float(dist))
+            sim = 1.0 / (1.0 + float(dist))  # map L2 distance to similarity
             cid = (doc.metadata or {}).get("_doc_id")
             if cid is not None:
-                dense_scores[cid] = max(dense_scores.get(cid, 0.0), sim)
+                # keep best sim per doc id
+                prev = dense_scores.get(cid, 0.0)
+                if sim > prev:
+                    dense_scores[cid] = sim
 
-        # Candidate universe (union); dedupe by id
+        # union & dedupe by id
         cand_ids = set(bm_ids).union(dense_scores.keys())
-
-        # Align arrays for normalization
         id2idx = {d_id: i for i, d_id in enumerate(self._ids)}
         bm_vec, ds_vec, cand_docs = [], [], []
         for cid in cand_ids:
@@ -250,14 +189,17 @@ class HybridLocalRetriever(BaseRetriever):
         blended = alpha * ds_n + (1.0 - alpha) * bm_n
 
         order = np.argsort(-blended)[:k]
-
         out: List[Document] = []
         for j in order:
             d = cand_docs[j]
-            # Optionally include score breakdowns in metadata (non-destructive copy)
             md = (d.metadata or {}).copy()
             md["_hybrid_bm25"] = float(bm_n[j])
             md["_hybrid_dense"] = float(ds_n[j])
             md["_hybrid_score"] = float(blended[j])
             out.append(Document(page_content=d.page_content, metadata=md))
         return out
+
+    # Optional: async variant (helps in LCEL async chains)
+    async def _aget_relevant_documents(self, query: str, *, run_manager=None) -> List[Document]:
+        # Just call the sync path; FAISS & BM25 are CPU-bound and fast for typical k.
+        return self._get_relevant_documents(query)
